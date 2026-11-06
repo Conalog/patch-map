@@ -17,15 +17,32 @@ final class RelationPath {
     Iterable<Offset> local,
     Iterable<Offset> world,
   ) : localPoints = List.unmodifiable(local),
-      worldPoints = List.unmodifiable(world);
+      worldPoints = List.unmodifiable(world),
+      decoration = null;
+
+  RelationPath._withDecoration(RelationPath path, this.decoration)
+    : sourceId = path.sourceId,
+      targetId = path.targetId,
+      localPoints = path.localPoints,
+      worldPoints = path.worldPoints;
   final String sourceId, targetId;
   final List<Offset> localPoints, worldPoints;
+  final RelationDecoration? decoration;
   bool get isSelfLink => sourceId == targetId;
+  bool get hasLength => localPoints.any((point) => point != localPoints.first);
 }
+
+/// Filled contours for a marked link, including the stroke pieces. Each
+/// contour winds clockwise so the fill applies alpha once across overlaps.
+typedef RelationDecoration = ({
+  bool atStart,
+  List<Quad> polygons,
+  List<Rect> circles,
+});
 
 /// Shared retained relation projection. Matches release relation-paths.ts:
 /// endpoint centers are world-first, self links are five-point outside loops,
-/// and hidden/missing endpoints omit their path. No curve/arrow schema exists.
+/// and hidden/missing endpoints omit their path.
 final class RelationGeometry {
   RelationGeometry._(
     this.world,
@@ -62,9 +79,8 @@ final class RelationGeometry {
     }
     final style = node.data['style']! as Map<String, Object?>;
     final width = (style['width'] as num?)?.toDouble() ?? 1;
-    // Only width is geometric in release relation lowering. Other admitted
-    // stroke options do not alter its butt caps / miter joins / limit 10.
-    const miterLimit = 10.0;
+    final startMarker = style['startMarker'] as String? ?? 'none';
+    final endMarker = style['endMarker'] as String? ?? 'none';
     final paths = <RelationPath>[];
     final boundsCache = <String, Rect?>{};
     Rect? bounds(String id) => boundsCache.putIfAbsent(id, () {
@@ -97,51 +113,69 @@ final class RelationGeometry {
       ];
       paths.add(RelationPath._(fromId, toId, localPoints, worldPoints));
     }
+
     final quads = <Quad>[];
     final half = width / 2;
+    Rect? paintBounds;
     if (half > 0) {
-      for (final path in paths) {
-        final raw = path.localPoints;
+      final start = startMarker == 'none'
+          ? -1
+          : paths.indexWhere((path) => path.hasLength);
+      final end = endMarker == 'none'
+          ? -1
+          : paths.lastIndexWhere((path) => path.hasLength);
+      for (var index = 0; index < paths.length; index++) {
+        final path = paths[index];
         final points = <Offset>[];
-        for (final point in raw) {
+        for (final point in path.localPoints) {
           if (points.isEmpty || point != points.last) points.add(point);
         }
         if (points.length < 2) continue;
-        final directions = <Offset>[];
-        for (var i = 1; i < points.length; i++) {
-          final delta = points[i] - points[i - 1];
-          final length = vectorLength(delta.dx, delta.dy);
-          final unit = delta / length;
-          directions.add(unit);
-          final normal = Offset(-unit.dy, unit.dx) * half;
-          quads.add(
-            Quad(
-              points[i - 1] + normal,
-              points[i] + normal,
-              points[i] - normal,
-              points[i - 1] - normal,
-            ),
+        final firstQuad = quads.length;
+        _addStrokeQuads(points, half, quads);
+        if (index != start && index != end) continue;
+
+        final polygons = <Quad>[];
+        final circles = <Rect>[];
+        if (index == start) {
+          _addMarker(
+            startMarker,
+            points.first,
+            points[1],
+            width,
+            polygons,
+            circles,
           );
         }
-        for (var i = 1; i + 1 < points.length; i++) {
-          final previous = directions[i - 1], next = directions[i];
-          final turn = cross(previous, next);
-          if (turn.abs() < 1e-14) continue;
-          final center = points[i];
-          final n0 = Offset(previous.dy, -previous.dx) * turn.sign;
-          final n1 = Offset(next.dy, -next.dx) * turn.sign;
-          final a = center + n0 * half, b = center + n1 * half;
-          final denominator = 1 + n0.dx * n1.dx + n0.dy * n1.dy;
-          final offset = denominator <= 0
-              ? null
-              : (n0 + n1) * (half / denominator);
-          if (offset != null &&
-              vectorLength(offset.dx, offset.dy) <= half * miterLimit) {
-            quads.add(Quad(center, a, center + offset, b));
-          } else {
-            quads.add(Quad(center, a, b, b));
-          }
+        if (index == end) {
+          _addMarker(
+            endMarker,
+            points.last,
+            points[points.length - 2],
+            width,
+            polygons,
+            circles,
+          );
         }
+        for (final polygon in polygons) {
+          paintBounds = unionBounds(
+            paintBounds,
+            _project(node.world, polygon).bounds,
+          );
+        }
+        for (final circle in circles) {
+          paintBounds = unionBounds(
+            paintBounds,
+            node.world.projectRect(circle).bounds,
+          );
+        }
+        paths[index] = RelationPath._withDecoration(path, (
+          atStart: index == start,
+          polygons: List.unmodifiable(
+            quads.getRange(firstQuad, quads.length).followedBy(polygons),
+          ),
+          circles: List.unmodifiable(circles),
+        ));
       }
     }
     Rect? logicalBounds;
@@ -155,7 +189,6 @@ final class RelationGeometry {
     }
     if (logicalBounds != null) validateBounds(logicalBounds);
     final worldQuads = [for (final quad in quads) _project(node.world, quad)];
-    Rect? paintBounds;
     for (final quad in worldQuads) {
       paintBounds = unionBounds(paintBounds, quad.bounds);
     }
@@ -216,6 +249,70 @@ final class RelationGeometry {
   bool intersects(Quad worldRange) {
     final range = _project(_inverse, worldRange);
     return _localQuads.any((quad) => quad.intersects(range));
+  }
+}
+
+void _addStrokeQuads(List<Offset> points, double half, List<Quad> quads) {
+  // Relations use butt caps and miter joins with limit 10.
+  const miterLimit = 10.0;
+  final directions = <Offset>[];
+  for (var i = 1; i < points.length; i++) {
+    final delta = points[i] - points[i - 1];
+    final unit = delta / vectorLength(delta.dx, delta.dy);
+    directions.add(unit);
+    final normal = Offset(-unit.dy, unit.dx) * half;
+    quads.add(
+      Quad(
+        points[i - 1] - normal,
+        points[i] - normal,
+        points[i] + normal,
+        points[i - 1] + normal,
+      ),
+    );
+  }
+  for (var i = 1; i + 1 < points.length; i++) {
+    final previous = directions[i - 1], next = directions[i];
+    final turn = cross(previous, next);
+    if (turn.abs() < 1e-14) continue;
+    final center = points[i];
+    final n0 = Offset(previous.dy, -previous.dx) * turn.sign;
+    final n1 = Offset(next.dy, -next.dx) * turn.sign;
+    final a = center + n0 * half, b = center + n1 * half;
+    final denominator = 1 + n0.dx * n1.dx + n0.dy * n1.dy;
+    final offset = denominator <= 0 ? null : (n0 + n1) * (half / denominator);
+    final tip =
+        offset != null &&
+            vectorLength(offset.dx, offset.dy) <= half * miterLimit
+        ? center + offset
+        : b;
+    quads.add(turn > 0 ? Quad(center, a, tip, b) : Quad(center, b, tip, a));
+  }
+}
+
+void _addMarker(
+  String shape,
+  Offset endpoint,
+  Offset adjacent,
+  double width,
+  List<Quad> polygons,
+  List<Rect> circles,
+) {
+  final radius = 2 * width;
+  if (shape == 'circle') {
+    circles.add(Rect.fromCircle(center: endpoint, radius: radius));
+    return;
+  }
+  final delta = endpoint - adjacent;
+  final direction = delta / vectorLength(delta.dx, delta.dy);
+  final side = Offset(-direction.dy, direction.dx) * radius;
+  if (shape == 'diamond') {
+    final axis = direction * radius;
+    polygons.add(
+      Quad(endpoint + axis, endpoint + side, endpoint - axis, endpoint - side),
+    );
+  } else {
+    final base = endpoint - direction * (4 * width);
+    polygons.add(Quad(endpoint, base + side, base - side, base - side));
   }
 }
 

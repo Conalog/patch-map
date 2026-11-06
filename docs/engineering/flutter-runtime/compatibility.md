@@ -29,6 +29,12 @@ release/1.0 except explicitly approved main behavior.
   validates the complete scalar grammar before projection. A 30-case JavaScript
   oracle and native output/update regressions cover this correction; native and
   browser antialiasing are not claimed to be bit-identical.
+- Flutter extends the relation style with independent `startMarker` and
+  `endMarker` values. The retained path supplies the two anchor positions and
+  directions. Markers extend paint bounds for culling and camera fit. Logical
+  and hit geometry still use the existing path and stroke. The
+  [Flutter README](../../../packages/flutter/README.md#relation-endpoint-markers)
+  owns the input values and visual defaults.
 - SVG tint applies to the composited artwork, including overlapping primitives
   and embedded raster images. Per-path ColorMapper alpha is not equivalent.
   A non-white vector tint records a compositing layer; repeated image sharing

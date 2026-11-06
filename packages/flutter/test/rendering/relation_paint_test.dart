@@ -11,31 +11,46 @@ GeometrySnapshot scene(
   Map<String, Object?> style, {
   bool self = false,
   bool hidden = false,
+  bool chain = false,
+  double targetX = 30,
 }) => GeometrySnapshot.compile(
   const DatasetReader().read([
     {'type': 'rect', 'id': 'a', 'size': 10, 'show': !hidden},
+    if (chain)
+      {
+        'type': 'rect',
+        'id': 'mid',
+        'size': 10,
+        'attrs': {'x': 15},
+      },
     {
       'type': 'rect',
       'id': 'b',
       'size': 10,
-      'attrs': {'x': 30},
+      'attrs': {'x': targetX},
     },
     {
       'type': 'relations',
       'id': 'r',
       'style': style,
       'links': [
-        {'source': 'a', 'target': self ? 'a' : 'b'},
+        if (chain) ...[
+          {'source': 'missing', 'target': 'a'},
+          {'source': 'a', 'target': 'mid'},
+          {'source': 'mid', 'target': 'b'},
+          {'source': 'b', 'target': 'missing'},
+        ] else
+          {'source': 'a', 'target': self ? 'a' : 'b'},
       ],
     },
   ]),
   (_, _) => Size.zero,
 );
 
-Future<ByteData> pixels(RelationPaint paint) async {
+Future<ByteData> pixels(RelationPaint paint, {double alpha = 1}) async {
   final recorder = PictureRecorder();
   final canvas = Canvas(recorder)..translate(10, 20);
-  paint.paint(canvas);
+  paint.paint(canvas, alphaMultiplier: alpha);
   final picture = recorder.endRecording();
   final image = await picture.toImage(64, 64);
   try {
@@ -51,6 +66,95 @@ List<int> pixel(ByteData data, int x, int y) => [
 ];
 
 void main() {
+  testWidgets('a chain decorates only its first and last drawable ends', (
+    tester,
+  ) async {
+    final snapshot = scene({
+      'width': 2,
+      'startMarker': 'circle',
+      'endMarker': 'diamond',
+    }, chain: true);
+    final geometry = snapshot.relationFor('r')!;
+    final data = (await tester.runAsync(
+      () => pixels(
+        RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
+      ),
+    ))!;
+    expect(geometry.paintBounds, const Rect.fromLTRB(1, 1, 39, 9));
+    expect(pixel(data, 12, 25)[3], 255);
+    expect(pixel(data, 30, 27)[3], 0);
+    expect(pixel(data, 47, 25)[3], 255);
+    expect(geometry.contains(const Offset(2.5, 5.5)), isFalse);
+  });
+
+  testWidgets('circle and end arrow share one translucent stroke fill', (
+    tester,
+  ) async {
+    final snapshot = scene({
+      'width': 4,
+      'color': '#ff000080',
+      'startMarker': 'circle',
+      'endMarker': 'arrow',
+    });
+    final geometry = snapshot.relationFor('r')!;
+    final data = (await tester.runAsync(
+      () => pixels(
+        RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), .5),
+        alpha: .5,
+      ),
+    ))!;
+    for (final (x, y) in [(10, 25), (15, 25), (25, 25), (32, 25), (32, 29)]) {
+      expect(pixel(data, x, y), [255, 0, 0, 32], reason: '$x,$y');
+    }
+    expect(pixel(data, 43, 29)[3], 0); // Arrow narrows toward the target.
+    expect(pixel(data, 46, 25)[3], 0);
+  });
+
+  testWidgets('start arrow points outward and end diamond is centered', (
+    tester,
+  ) async {
+    final snapshot = scene({
+      'width': 4,
+      'startMarker': 'arrow',
+      'endMarker': 'diamond',
+    });
+    final data = (await tester.runAsync(
+      () => pixels(
+        RelationPaint(
+          snapshot.relationFor('r')!,
+          snapshot['r']!.data,
+          ColorResolver(),
+          1,
+        ),
+      ),
+    ))!;
+    expect(pixel(data, 16, 29)[3], 0);
+    expect(pixel(data, 27, 29)[3], 255);
+    expect(pixel(data, 49, 25)[3], 255);
+    expect(pixel(data, 49, 30)[3], 0);
+    expect(pixel(data, 54, 25)[3], 0);
+  });
+
+  testWidgets('hidden, coincident and zero-width paths omit markers', (
+    tester,
+  ) async {
+    const markers = {'startMarker': 'circle', 'endMarker': 'arrow'};
+    for (final snapshot in [
+      scene(markers, hidden: true),
+      scene(markers, targetX: 0),
+      scene({...markers, 'width': 0}),
+    ]) {
+      final geometry = snapshot.relationFor('r')!;
+      expect(geometry.paintBounds, isNull);
+      final data = (await tester.runAsync(
+        () => pixels(
+          RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
+        ),
+      ))!;
+      expect(data.buffer.asUint8List().every((value) => value == 0), isTrue);
+    }
+  });
+
   testWidgets(
     'native straight stroke preserves alpha and butt endpoint extents',
     (tester) async {

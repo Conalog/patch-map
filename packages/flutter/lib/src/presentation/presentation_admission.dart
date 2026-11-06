@@ -179,7 +179,7 @@ class PresentationAdmission {
           ),
           'style' =>
             type == 'relations'
-                ? _relationStyle(v, p)
+                ? relationStyle(v, p, partial: true)
                 : partialTextStyle(
                     v,
                     p,
@@ -238,11 +238,6 @@ num _integer(Object? value, String path) {
   final n = number(value, path);
   if (n != n.roundToDouble()) invalid(path, 'field must be an integer');
   return n;
-}
-
-Map<String, Object?> _relationStyle(Object? value, String path) {
-  final normalized = stroke(value, path, compatibility: true, partial: true);
-  return normalized;
 }
 
 bool _atomicRoot(String key, Object? normalized, bool concrete, String type) =>
