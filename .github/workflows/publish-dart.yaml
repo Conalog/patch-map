@@ -36,7 +36,7 @@ jobs:
     needs: qualify
     if: ${{ !cancelled() && github.event_name == 'push' && vars.PUBDEV_PUBLISH_ENABLED == 'true' && needs.qualify.result == 'success' && needs.qualify.outputs['artifact-id'] != '' }}
     environment: pub.dev
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -50,7 +50,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Read SDK role
         id: sdk

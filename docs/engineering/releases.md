@@ -12,9 +12,9 @@ each package's public documentation; release automation does not qualify it.
 | `packages/javascript` | npm `@conalog/patch-map` / [package.json](../../packages/javascript/package.json) | `js-v<version>` / `chore: release js <version>` |
 | `packages/flutter` | pub.dev `conalog_patch_map` / [pubspec.yaml](../../packages/flutter/pubspec.yaml) | `dart-v<version>` / `chore: release dart <version>` |
 
-`release-please.yaml` runs on `release/1.0` pushes and plans separate PRs, tags and GitHub Releases. Registry writes and publication
-Node.js versions belong to the [npm workflow](../../.github/workflows/publish.yaml)
-and [Dart workflow](../../.github/workflows/publish-dart.yaml). Keep historical `v*` releases; the pinned planner uses npm's actual v1.0.0-alpha.9 boundary until its first prefixed
+`release-please.yaml` runs on `release/1.0` pushes and plans separate PRs, tags and GitHub Releases.
+The [npm publishing workflow](../../.github/workflows/publish.yaml) pins Node 24 with its bundled npm CLI for Trusted Publishing.
+CI, release planning and Dart publishing read the exact Node 22 version from [`.nvmrc`](../../.nvmrc). Keep historical `v*` releases; the pinned planner uses npm's actual v1.0.0-alpha.9 boundary until its first prefixed
 release. Dart-only releases leave npm and the root lock version unchanged. Dart starts at alpha.1; its manifest entry appears in the first release PR, not
 before planning. Release histories live in the package-local [JavaScript changelog](../../packages/javascript/CHANGELOG.md)
 and [Flutter changelog](../../packages/flutter/CHANGELOG.md); preserve their historical release links.
@@ -102,7 +102,7 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 Dart release PRs retain `dart-prequalified-<version>-pr-<number>-<tree>` in the required CI run after source checks and both renderer runs. Enabled tags reuse it only when
 the successful run matches the merged PR and tagged tree and the package bytes and evidence verify. Missing, expired or mismatched evidence triggers full tag verification.
-Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. The iOS job pins macOS 15, Xcode 26.3 and iOS 26.2 and waits for simulator logging.
+Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. CI boots its pinned iOS 26.2 simulator on macOS 15 with Xcode 26.3 while setting up the toolchains, then waits for boot and simulator logging.
 Keep CocoaPods aligned in `Gemfile.lock` and `Podfile.lock`. PRs never publish. Tag runs retain the accepted artifact as `dart-qualified-<SHA>`.
 Retry failed jobs on the original tag run. Record the published package version, artifact and successful run URL separately from qualification.
 
