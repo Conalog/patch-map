@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.0-alpha.3](https://github.com/Conalog/patch-map/compare/dart-v1.0.0-alpha.2...dart-v1.0.0-alpha.3) (2026-11-09)
+
+
+### Added
+
+* add Flutter relation endpoint markers ([#276](https://github.com/Conalog/patch-map/issues/276)) ([e38e81b](https://github.com/Conalog/patch-map/commit/e38e81b7a9ab4d87dc121822051a6f82f87a385d))
+* add opt-in Flutter double-tap drag zoom ([#279](https://github.com/Conalog/patch-map/issues/279)) ([5910f4a](https://github.com/Conalog/patch-map/commit/5910f4a36589810131676555e5012a6def37628f))
+* keep Flutter map content readable during rotation ([#278](https://github.com/Conalog/patch-map/issues/278)) ([68d0292](https://github.com/Conalog/patch-map/commit/68d029288ad442edd83b496c7a15fd3bf55313e9))
+
 ## [1.0.0-alpha.2](https://github.com/Conalog/patch-map/compare/dart-v1.0.0-alpha.1...dart-v1.0.0-alpha.2) (2026-11-04)
 
 

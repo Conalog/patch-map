@@ -1,6 +1,6 @@
 name: conalog_patch_map
 description: Native PATCH MAP diagram rendering and interaction for Flutter on Android and iOS.
-version: 1.0.0-alpha.2
+version: 1.0.0-alpha.3
 platforms:
   android:
   ios:
