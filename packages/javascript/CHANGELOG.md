@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.13](https://github.com/Conalog/patch-map/compare/js-v1.0.0-alpha.12...js-v1.0.0-alpha.13) (2026-11-09)
+
+
+### Added
+
+* implement native Flutter PatchMap rendering and interaction ([#266](https://github.com/Conalog/patch-map/issues/266)) ([607e520](https://github.com/Conalog/patch-map/commit/607e520dd64b06e237fa9cbcba0e1b5bc6875709))
+
 ## [1.0.0-alpha.12](https://github.com/Conalog/patch-map/compare/js-v1.0.0-alpha.11...js-v1.0.0-alpha.12) (2026-10-14)
 
 
