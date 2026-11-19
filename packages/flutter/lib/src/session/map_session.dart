@@ -45,6 +45,7 @@ final class MapSession {
   Object? _work;
   bool _refresh = false;
   _Pending? _pending, _executing;
+  _Pending? _pendingMove;
   _Submission? _submission;
   Completer<PatchMapResult>? _replacementResult;
   final _replacementFailures = <String, List<PatchMapFailure>>{};
@@ -212,6 +213,33 @@ final class MapSession {
     return result;
   }
 
+  /// A move is one atomic position update on the regular publication drain.
+  /// Finish already-waiting values first so the move can check its baseline.
+  Future<PatchMapResult> move(
+    List<PatchMapUpdate> updates,
+    bool Function() canPublish,
+    void Function() didPublish,
+  ) {
+    if (!commandsAllowed ||
+        !active ||
+        _phase != PatchMapPhase.ready ||
+        _pendingMove != null) {
+      return Future.value(_rejected(StateError('map is not ready to move')));
+    }
+    final PresentationBatch batch;
+    try {
+      batch = _admission.admit(_document!, updates, current: current);
+    } on DatasetException catch (error) {
+      return Future.value(_rejected(error));
+    }
+    final pending = _pendingMove = _Pending()
+      ..move = _MovePublication(_pending, canPublish, didPublish);
+    final result = pending.ledger.add(batch);
+    _composePending(pending, batch);
+    _schedule();
+    return result;
+  }
+
   /// Caller callback mutations are admitted immediately, processed on exit.
   void notify(void Function() callback) {
     if (_closed) return;
@@ -312,12 +340,14 @@ final class MapSession {
     } else {
       final trace = stack ?? StackTrace.current;
       _pending?.ledger.failUnexpected(error, trace);
+      _pendingMove?.ledger.failUnexpected(error, trace);
       _executing?.ledger.failUnexpected(error, trace);
       final replacement = _replacementResult;
       if (replacement != null && !replacement.isCompleted) {
         replacement.completeError(error, trace);
       }
       _pending = null;
+      _pendingMove = null;
       _executing = null;
       _submission = null;
       _replacementResult = null;
@@ -337,7 +367,9 @@ final class MapSession {
     if (result == null) return null;
     // A published executing plan is already represented by _values. Replaying
     // it would resurrect fields of an item whose preparation failed.
-    final executing = _submission == null ? _executing?.index[target] : null;
+    final executing = _submission == null && _executing?.move == null
+        ? _executing?.index[target]
+        : null;
     final pending = _pending?.index[target];
     if (executing == null && pending == null) return result;
     final authored = authoredRecord(_document!, target);
@@ -453,7 +485,7 @@ final class MapSession {
       _work == null &&
       _submission == null &&
       _phase != PatchMapPhase.failed &&
-      (_replacement || _pending != null || _refresh);
+      (_replacement || _pending != null || _pendingMove != null || _refresh);
 
   void _schedule() {
     if (_queued || !_canDrain) return;
@@ -505,9 +537,29 @@ final class MapSession {
       }
       // First-screen input is cut at presentation processing, after document
       // preparation. Later active requests cannot postpone first readiness.
-      var pending = _executing = _pending;
-      _pending = null;
+      final queuedMove = _pendingMove;
+      final takeMove =
+          !initial &&
+          !refresh &&
+          queuedMove != null &&
+          (_pending == null || !identical(queuedMove.move!.after, _pending));
+      var pending = _executing = takeMove ? queuedMove : _pending;
+      if (takeMove) {
+        _pendingMove = null;
+      } else {
+        _pending = null;
+      }
+      final move = pending?.move;
+      const moveConflict = PatchMapFailure(
+        'MOVE_CONFLICT',
+        'The active move or its position baseline changed',
+      );
       while (valid()) {
+        if (move != null && !move.canPublish()) {
+          pending!.ledger.reject(const [moveConflict]);
+          _executing = null;
+          return;
+        }
         final suspension = _suspension;
         final changes = pending == null
             ? <PatchMapTarget, RecordDelta>{}
@@ -516,23 +568,49 @@ final class MapSession {
             ? const <String, List<PatchMapFailure>>{}
             : _revalidateAfterFailure(pending, changes);
         if (changes.isNotEmpty) {
-          final prepared = await backend.prepareUpdate(
-            baseline,
-            document,
-            changes,
-            generation: generation,
-            animate: !initial && !_resumeWithoutAnimation,
-            intent: pending?.plan,
-          );
-          candidate = prepared.publication;
-          failures = failures.isEmpty
-              ? prepared.failures
-              : {...failures, ...prepared.failures};
+          try {
+            final prepared = await backend.prepareUpdate(
+              baseline,
+              document,
+              changes,
+              generation: generation,
+              animate: !initial && !_resumeWithoutAnimation,
+              intent: pending?.plan,
+              atomic: move != null,
+            );
+            candidate = prepared.publication;
+            failures = failures.isEmpty
+                ? prepared.failures
+                : {...failures, ...prepared.failures};
+          } on DatasetException catch (error) {
+            if (move == null) rethrow;
+            if (valid()) {
+              pending!.ledger.reject([_failure(error)]);
+              _executing = null;
+            }
+            return;
+          }
         } else {
           candidate = baseline;
           backend.retain(candidate);
         }
-        if (!await waitActive()) return;
+        if (move != null) {
+          if (!valid()) return;
+          if (!active ||
+              suspension != _suspension ||
+              !move.canPublish() ||
+              failures.isNotEmpty) {
+            pending!.ledger.reject(
+              failures.isEmpty
+                  ? const [moveConflict]
+                  : failures.values.expand((value) => value),
+            );
+            _executing = null;
+            return;
+          }
+        } else if (!await waitActive()) {
+          return;
+        }
         if (suspension != _suspension) {
           // Resume publishes latest composed values, never an intermediate
           // result prepared before suspension. The old work's reservation is
@@ -581,6 +659,10 @@ final class MapSession {
           failures,
         );
         pending?.ledger.recordFailures(failures);
+        if (move != null) {
+          pending!.move = null;
+          move.didPublish();
+        }
         if (_replacementResult != null) _replacementFailures.addAll(failures);
         invalidate();
         break;
@@ -656,6 +738,7 @@ final class MapSession {
 
   void _interrupt(PatchMapInterruption reason, {PatchMapFailure? failure}) {
     _pending?.ledger.interrupt(reason, failure: failure);
+    _pendingMove?.ledger.interrupt(reason, failure: failure);
     _executing?.ledger.interrupt(reason, failure: failure);
     final replacement = _replacementResult;
     if (replacement != null && !replacement.isCompleted) {
@@ -671,6 +754,7 @@ final class MapSession {
       );
     }
     _pending = null;
+    _pendingMove = null;
     _executing = null;
     _submission = null;
     _replacementResult = null;
@@ -700,6 +784,14 @@ class _Pending {
   Map<PatchMapTarget, PresentationPatch> index = {};
   final ledger = RequestLedger();
   Set<String>? rolledBack;
+  _MovePublication? move;
+}
+
+class _MovePublication {
+  const _MovePublication(this.after, this.canPublish, this.didPublish);
+  final _Pending? after;
+  final bool Function() canPublish;
+  final void Function() didPublish;
 }
 
 class _Submission {

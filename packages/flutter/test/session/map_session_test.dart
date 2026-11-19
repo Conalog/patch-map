@@ -902,6 +902,7 @@ class _Backend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) {
     final work = _UpdateWork(
       this,

@@ -39,6 +39,7 @@ class Backend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) async {
     updates++;
     lastChanges = changes;
@@ -91,6 +92,60 @@ Future<void> ready(MapSession s, Backend b) async {
 }
 
 void main() {
+  test(
+    'a failed move candidate leaves the submitted revision intact',
+    () async {
+      final backend = Backend();
+      final session = make(backend);
+      addTearDown(session.close);
+      const other = PatchMapTarget('other');
+      final drawing = session.replace([
+        ...scene,
+        {'type': 'text', 'id': other.id, 'text': '1'},
+      ]);
+      await flush();
+      final before = backend.stamp!;
+      session.didSubmit(before);
+      await drawing;
+
+      const failure = PatchMapFailure('INVALID_GEOMETRY', 'related geometry');
+      backend.failures = {
+        'dependent-relation': [failure],
+      };
+      var published = false;
+      final move = session.move(
+        const [
+          PatchMapUpdate(target, {
+            'attrs': {'x': 100},
+          }),
+          PatchMapUpdate(other, {
+            'attrs': {'x': 200},
+          }),
+        ],
+        () => true,
+        () => published = true,
+      );
+      await flush();
+      expect(backend.lastChanges.keys, containsAll([target, other]));
+      expect(backend.stamp, same(before));
+      expect(session.current(target)!['attrs'], isNull);
+      expect(session.current(other)!['attrs'], isNull);
+      expect(published, isFalse);
+      final result = await move;
+      expect(result.outcome, PatchMapOutcome.rejected);
+      expect(result.failures, [failure]);
+
+      backend.failures = {};
+      final next = session.update(const [
+        PatchMapUpdate(target, {'text': '2'}),
+      ]);
+      await flush();
+      session.didSubmit(backend.stamp!);
+      expect((await next).outcome, PatchMapOutcome.applied);
+      expect(session.current(target)!['text'], '2');
+    },
+  );
+
   test(
     'inactive cross-field validation reads the latest composed pending index',
     () async {

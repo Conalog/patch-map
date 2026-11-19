@@ -91,8 +91,9 @@ final class InputQuery {
   PatchMapObject? point(
     GeometrySnapshot snapshot,
     Offset world,
-    double cameraRotation,
-  ) {
+    double cameraRotation, {
+    InputFilter? accept,
+  }) {
     final bounds = Rect.fromPoints(world, world);
     for (final slot in _candidates(snapshot, bounds)) {
       final node = snapshot.nodes[slot];
@@ -111,7 +112,7 @@ final class InputQuery {
         continue;
       }
       final result = object(node);
-      if (_allow(result)) return result;
+      if (_allow(result) && (accept?.call(result) ?? true)) return result;
     }
     return null;
   }

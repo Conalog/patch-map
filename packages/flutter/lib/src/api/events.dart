@@ -1,5 +1,17 @@
 import 'dart:ui';
 
+import 'result.dart';
+
+/// Result of a long-press move. Successful positions are in each object's
+/// parent coordinate system, as stored in its effective `attrs.x` and `attrs.y`.
+final class PatchMapMoveResult {
+  PatchMapMoveResult(this.result, Map<String, Offset> positions)
+    : positions = Map.unmodifiable(positions);
+
+  final PatchMapResult result;
+  final Map<String, Offset> positions;
+}
+
 /// Public logical object data: renderer/component identities never escape.
 /// Both maps are immutable owned records; unchanged data may be shared.
 final class PatchMapObject {

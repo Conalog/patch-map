@@ -295,8 +295,53 @@ clamped between `minStrokeWidth` (default 1) and `strokeWidth`. Both widths must
 be finite and positive, with minimum <= base even for fixed mode. Invalid initial
 settings reject attachment; invalid rebuild settings report a Flutter error and
 retain the last valid style. Inactive style changes display on resume. Styles
-persist across diagram replacement, while selection still resets. No editing
-handles or object-transform commands are added.
+persist across diagram replacement, while selection still resets.
+
+### Long-press editing
+
+Enable range selection and translation explicitly on a map that is in an
+editing workflow:
+
+```dart
+PatchMapView(
+  controller: controller,
+  longPressEditEnabled: editing,
+  onMoveResult: (move) {
+    if (move.result.outcome == PatchMapOutcome.applied) {
+      // Copy move.positions to the app's draft if it needs to persist the edit.
+    }
+  },
+);
+```
+
+The option defaults to `false`. An enabled hold on empty space starts a
+screen-aligned selection box. After dragging, release to replace the selection
+with the editable objects that intersect the box. A hold on an object selects
+it immediately. Hold a member of the current selection to move the selection
+together. During the drag, a translated outline previews the destination.
+Release applies the movement to the current diagram in one publication,
+including affected relation geometry. A double tap on empty space clears
+selection. The usual long-press duration and gesture thresholds still apply.
+
+The default target for a grid cell is its grid. For other hits, the target is
+the hit's own ID. Use the optional, judgment-only `editTargetResolver` to
+map a hit to a different element or return null to skip it. Point and range
+hits pass through `eventFilter` first. A selected ancestor subsumes selected
+descendants. Hidden and locked targets and relations cannot be moved. A
+container with a locked descendant rejects a group move. Direct selection
+can address containers while editing is enabled.
+
+Enabling applies from the next press. Disabling cancels any unreleased
+gesture or unpublished move and preserves previous completed edits.
+Multitouch, cancellation, a changing camera, deactivation, replacement, and
+removal can interrupt editing. Existing input events and drag modes apply when
+the option is off.
+
+`onMoveResult` receives the result of a released move. A successful result
+follows a submitted frame and contains the new effective `attrs.x/y` as offsets
+in each target's parent coordinates. A rejected move supplies failures without
+partially translating the selection. The app owns persistence. Moving objects
+does not alter their authored input, and a later `draw` uses its supplied data.
 
 ## Lifetime and callbacks
 
@@ -327,7 +372,8 @@ match authored colors. It does not resolve theme tokens and throws
 The runtime covers item, grid, group, relations, image, text, rect and the four
 item components (background, bar, icon, text). It retains scene geometry and
 uses CustomPainter, shared text/SVG resources, and internal bar optimizations.
-Editor, PNG export and item screen-reader support are excluded from first release.
+Flutter editing covers opt-in range selection and translation. PNG export and
+item screen-reader support are outside the current scope.
 Advanced text effects and full platform equivalence are not qualified by synthetic tests.
 
 The example covers 10,000 regular/varied panels, number/bar/mixed updates and navigation; its README documents profile commands. Checkpoints do not establish WebView equivalence.

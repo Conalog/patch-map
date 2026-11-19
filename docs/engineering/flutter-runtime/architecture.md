@@ -47,9 +47,9 @@ envelopes still invalidate it; narrower alpha-layer proofs retain their separate
 geometry invalidation ([show checkpoint](component-show-checkpoint.md)).
 The frame coordinator samples monotonic time when its callback runs; queued vsync
 age cannot consume a newly published animation. The clock owns no timer. Inactive
-transitions clear on suspension. The same coordinator delivers coalesced range/paint
-and unchanged-pan notifications without repainting. Raw hits stay eager; selection,
-camera, publication and animation changes still paint, including callback mutations and final animation ticks. Only actual painter witnesses confirm submission.
+transitions clear on suspension. Range/paint and unchanged-pan notifications need no scene repaint.
+Raw hits stay eager. Selection, camera, publication and animation changes still paint the scene.
+The opt-in edit preview uses a separate paint boundary. Only actual painter witnesses confirm submission.
 
 The renderer visits visible candidates in paint order. Logical updates still
 cover offscreen items. Retained commits invalidate output slots, resolved when drawn.

@@ -12,6 +12,7 @@ Widget _host(
   required List<PatchMapPhase> phases,
   required List<PatchMapFailure> failures,
   ValueChanged<PatchMapCameraChange>? cameraChanged,
+  ValueChanged<PatchMapMoveResult>? moveResult,
   bool active = true,
   PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => MediaQuery(
@@ -41,6 +42,8 @@ Widget _host(
           onPhaseChanged: (phase, _) => phases.add(phase),
           onImageFailure: failures.addAll,
           onCameraChanged: cameraChanged,
+          longPressEditEnabled: moveResult != null,
+          onMoveResult: moveResult,
         ),
       ),
     ),
@@ -80,6 +83,42 @@ Future<PatchMapResult> _submitted(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('installed consumer opts into a submitted long-press move', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    final moves = <PatchMapMoveResult>[];
+    await tester.pumpWidget(
+      _host(controller, phases: [], failures: [], moveResult: moves.add),
+    );
+    final drawn = await _submitted(
+      tester,
+      controller.draw([
+        {'type': 'rect', 'id': 'target', 'size': 50, 'fill': 'red'},
+      ]),
+    );
+    expect(drawn.outcome, PatchMapOutcome.applied);
+    final start = tester.getCenter(find.byType(PatchMapView));
+    final before = controller.getGeometry('target')!.origin;
+    final camera = controller.camera!;
+    final hold = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 650));
+    expect(controller.selected.single.id, 'target');
+    await hold.moveBy(const Offset(40, 20));
+    await tester.pump();
+    expect(controller.getGeometry('target')!.origin, before);
+    await hold.up();
+    await _progress(tester);
+    final move = moves.single;
+    expect(move.result.outcome, PatchMapOutcome.applied);
+    expect(
+      (move.positions['target']! - Offset(40, 20) / camera.scale).distance,
+      lessThan(1e-9),
+    );
+    expect(controller.getGeometry('target')!.origin, move.positions['target']);
+    expect(controller.camera, camera);
+  });
+
   test('installed bundled SVG and native font load', () async {
     final picture = await vg.loadPicture(
       const SvgAssetLoader(

@@ -13,6 +13,8 @@ import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
 import '../interaction/input_query.dart';
+import '../interaction/long_press_edit.dart';
+import '../interaction/selection_state.dart';
 import '../interaction/touch_camera_gesture.dart';
 import '../api/target.dart';
 import '../api/update.dart';
@@ -49,6 +51,9 @@ class PatchMapView extends StatefulWidget {
     this.onGestureRotation,
     this.eventFilter,
     this.dragMode = PatchMapDragMode.pan,
+    this.longPressEditEnabled = false,
+    this.editTargetResolver,
+    this.onMoveResult,
     this.gestures = const PatchMapGestureOptions(),
     this.zoomLimits = const PatchMapZoomLimits(),
     this.selectionStyle = const PatchMapSelectionStyle(),
@@ -72,6 +77,17 @@ class PatchMapView extends StatefulWidget {
   final ValueChanged<double>? onGestureRotation;
   final bool Function(PatchMapObject object)? eventFilter;
   final PatchMapDragMode dragMode;
+
+  /// Opt in to long-press range selection and object translation.
+  final bool longPressEditEnabled;
+
+  /// Maps an eligible hit to a movable element ID. The default uses a cell's
+  /// grid ID or the hit's own ID. Return null to skip a hit. This is a filter:
+  /// do not issue map commands from it.
+  final String? Function(PatchMapObject hit)? editTargetResolver;
+
+  /// A released move's result. Success follows submission of the new position.
+  final ValueChanged<PatchMapMoveResult>? onMoveResult;
   final PatchMapGestureOptions gestures;
   final PatchMapZoomLimits zoomLimits;
   final PatchMapSelectionStyle selectionStyle;
@@ -90,8 +106,32 @@ class _PatchMapViewState extends State<PatchMapView>
   late final MapSession session;
   late final FrameCoordinator frame;
   late final InputCoordinator input;
+  late final LongPressEdit _editor = LongPressEdit(
+    currentGeometry: input.currentGeometry,
+    camera: backend.camera,
+    query: input.query,
+    selection: input.selection,
+    invalidate: _invalidateEditPreview,
+    resolveTarget: (hit) {
+      final resolver = widget.editTargetResolver;
+      if (resolver == null) return hit.gridId ?? hit.id;
+      String? id;
+      session.filter(() {
+        id = resolver(hit);
+        return id != null;
+      });
+      return id;
+    },
+    commit: session.move,
+    notify: (result) {
+      if (!_disposed) session.notify(() => widget.onMoveResult?.call(result));
+    },
+    reportError: _report,
+  );
   PatchMapController? _attachedController;
   PatchMapFailure? _failure;
+  _EditPreviewRepaint? _editPreviewRepaint;
+  bool _editPreviewDirty = false;
   bool _foreground = true, _disposed = false;
   final _relationHits = Expando<InputHitGeometry>();
   bool _deferInput = false;
@@ -139,7 +179,13 @@ class _PatchMapViewState extends State<PatchMapView>
     frame = FrameCoordinator(
       onFrame: (time) {
         input.onFrame();
-        return backend.onFrame(time);
+        final animate = backend.onFrame(time);
+        input.checkEditCamera();
+        if (_editPreviewDirty) {
+          _editPreviewDirty = false;
+          _editPreviewRepaint?.repaint();
+        }
+        return animate;
       },
       onSubmitted: (stamp) {
         session.didSubmit(stamp);
@@ -226,6 +272,12 @@ class _PatchMapViewState extends State<PatchMapView>
     }
   }
 
+  void _invalidateEditPreview() {
+    if (_editPreviewDirty || _disposed) return;
+    _editPreviewDirty = true;
+    frame.requestNotification();
+  }
+
   void _observe(Future<PatchMapResult> future) {
     unawaited(
       future.catchError((Object error, StackTrace stack) {
@@ -290,6 +342,7 @@ class _PatchMapViewState extends State<PatchMapView>
       _attachedController?.detach(this);
       _attachedController = widget.controller;
       input.endDoubleTapZoom();
+      input.cancelEdit();
     }
     if (!presentationEqual(oldWidget.colors, widget.colors) ||
         !presentationEqual(oldWidget.symbols, widget.symbols)) {
@@ -315,6 +368,15 @@ class _PatchMapViewState extends State<PatchMapView>
   void _configureInput() {
     input.dragMode = widget.dragMode;
     input.configureDoubleTapZoom(_doubleTapZoomEnabled);
+    final wasDeferred = _deferInput;
+    _deferInput = true;
+    try {
+      input.configureLongPressEdit(
+        widget.longPressEditEnabled ? _editor : null,
+      );
+    } finally {
+      _deferInput = wasDeferred;
+    }
   }
 
   @override
@@ -447,6 +509,7 @@ class _PatchMapViewState extends State<PatchMapView>
     _attachedController = null;
     WidgetsBinding.instance.removeObserver(this);
     input.dispose();
+    _editPreviewRepaint?.dispose();
     session.close();
     frame.dispose();
     super.dispose();
@@ -531,10 +594,24 @@ class _PatchMapViewState extends State<PatchMapView>
                           if (!_disposed && session.generation == generation) {
                             session.fail(error, stack);
                           }
-                        }, () => input.selection.ids),
+                        }, input.selection),
                       ),
                     ),
                   ),
+                  if (widget.longPressEditEnabled && widget.active)
+                    IgnorePointer(
+                      child: RepaintBoundary(
+                        child: ClipRect(
+                          child: CustomPaint(
+                            painter: _EditPreviewPainter(
+                              _editPreviewRepaint ??= _EditPreviewRepaint(),
+                              backend.camera,
+                              () => input.editPreview,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   if (phase == PatchMapPhase.preparing &&
                       widget.loadingBuilder != null)
                     widget.loadingBuilder!(context),
@@ -605,6 +682,7 @@ class _PatchMapViewState extends State<PatchMapView>
     try {
       final center = backend.camera.center, scale = backend.camera.scale;
       action();
+      input.checkEditCamera();
       if (center != backend.camera.center || scale != backend.camera.scale) {
         input.endDoubleTapZoom();
       }
@@ -731,19 +809,24 @@ class _MapPainter extends CustomPainter {
     this.frame,
     this.pixelRatio,
     this.fail,
-    this.selectedIds,
+    this.selection,
   ) : super(repaint: frame);
   final MapBackend backend;
   final FrameCoordinator frame;
   final double pixelRatio;
   final void Function(int, Object, StackTrace) fail;
-  final Iterable<String> Function() selectedIds;
+  final SelectionState selection;
   @override
   void paint(Canvas canvas, Size size) {
     if (backend.current == null || !frame.active) return;
     final generation = backend.generation, revision = backend.revision;
     try {
-      backend.paint(canvas, pixelRatio, selectedIds: selectedIds());
+      backend.paint(
+        canvas,
+        pixelRatio,
+        selectedIds: selection.ids,
+        includeSelectedContainers: selection.hasContainers,
+      );
       frame.didPaint(generation, revision);
     } catch (error, stack) {
       // A post-frame callback may accept a replacement before this continuation.
@@ -755,4 +838,34 @@ class _MapPainter extends CustomPainter {
   @override
   bool shouldRepaint(_MapPainter old) =>
       old.pixelRatio != pixelRatio || !identical(old.backend, backend);
+}
+
+/// The map's frame callback repaints this boundary independently of the scene.
+final class _EditPreviewRepaint extends ChangeNotifier {
+  void repaint() => notifyListeners();
+}
+
+final class _EditPreviewPainter extends CustomPainter {
+  _EditPreviewPainter(Listenable repaint, this.camera, this.preview)
+    : super(repaint: repaint);
+
+  final MapCamera camera;
+  final ({Rect bounds, bool world})? Function() preview;
+  final _stroke = Paint()
+    ..color = const Color(0xff2f80ed)
+    ..style = PaintingStyle.stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final value = preview();
+    if (value == null) return;
+    _stroke.strokeWidth = value.world ? 2 / camera.scale : 2;
+    canvas.save();
+    if (value.world) canvas.transform(camera.paintMatrix);
+    canvas.drawRect(value.bounds, _stroke);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_EditPreviewPainter old) => false;
 }

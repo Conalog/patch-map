@@ -8,6 +8,7 @@ import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../viewport/camera.dart';
 import 'input_query.dart';
+import 'long_press_edit.dart';
 import 'selection_state.dart';
 
 /// Feed Listener raw down/move/up/cancel exactly once. Flutter tap/double-tap/
@@ -60,6 +61,24 @@ final class InputCoordinator {
   bool _disposed = false, _active = true;
   int _epoch = 0;
   _Recognition? _recognition;
+  LongPressEdit? _edit;
+
+  ({Rect bounds, bool world})? get editPreview => _edit?.preview;
+
+  void configureLongPressEdit(LongPressEdit? edit) {
+    if (identical(_edit, edit)) return;
+    final previous = _edit;
+    _edit = edit;
+    previous?.cancel(pending: true);
+    selection.allowContainers = edit != null;
+    // Even re-enabling during the same press cannot admit it as an edit.
+    _gesture?.editAllowed = false;
+    _recognition?.editAllowed = false;
+  }
+
+  void checkEditCamera() => _edit?.onCameraChanged();
+
+  void cancelEdit() => _edit?.cancel(pending: true);
 
   /// Capture after raw down; pass to delayed recognizer callbacks.
   int get inputEpoch => _epoch;
@@ -118,6 +137,7 @@ final class InputCoordinator {
       _pointers.add(pointer);
       if (_pointers.length > 1) {
         cancel(PatchMapEndReason.multitouch);
+        cancelEdit();
         return;
       }
     }
@@ -133,7 +153,9 @@ final class InputCoordinator {
     if (_disposed || !_active || _epoch != epoch) return;
     final p = position(local, global);
     if (buttons == 1) {
-      _gesture = _Gesture(pointer, p, touch)..zoomCandidate = zoomCandidate;
+      _gesture = _Gesture(pointer, p, touch)
+        ..zoomCandidate = zoomCandidate
+        ..editAllowed = _edit != null;
     }
     final snapshot = currentGeometry();
     final target = snapshot == null
@@ -154,6 +176,10 @@ final class InputCoordinator {
     if (_disposed || !_active || _pointers.length != 1) return;
     final gesture = _gesture;
     if (gesture == null || gesture.pointer != pointer) return;
+    if (gesture.editClaimed) {
+      _edit?.move(local, dragSlop);
+      return;
+    }
     final zoomY = gesture.zoomY;
     if (zoomY != null) {
       _zoom(gesture, local.dy, zoomY);
@@ -259,6 +285,12 @@ final class InputCoordinator {
     final gesture = _gesture;
     _pointers.remove(pointer);
     if (gesture == null || gesture.pointer != pointer) return;
+    if (gesture.editClaimed) {
+      _gesture = null;
+      _recognition = null;
+      _edit?.end(local, dragSlop);
+      return;
+    }
     if (gesture.zoomY != null) {
       _gesture = null;
       return;
@@ -291,7 +323,7 @@ final class InputCoordinator {
             gesture.touch &&
             !gesture.holdRecognized &&
             (local - gesture.start.local).distance <= dragSlop,
-      );
+      )..editAllowed = gesture.editAllowed;
       _emit(
         PatchMapInputEvent(
           kind: PatchMapInputKind.up,
@@ -365,6 +397,13 @@ final class InputCoordinator {
       gesture
         ..zoomCandidate = false
         ..holdRecognized = true;
+      if (gesture.editAllowed && _edit?.begin(sample.position.local) == true) {
+        if (!identical(_gesture, gesture)) return;
+        gesture.editClaimed = true;
+      }
+    } else if (kind == PatchMapInputKind.doubleTap && sample.editAllowed) {
+      _edit?.clearIfEmpty(sample.position.local);
+      if (!identical(_recognition, sample)) return;
     }
     _emit(
       PatchMapInputEvent(
@@ -436,6 +475,7 @@ final class InputCoordinator {
     final gesture = _gesture;
     _gesture = null;
     _pendingMove = null;
+    _edit?.cancel();
     if (gesture?.mode != null) {
       _emit(_event(gesture!, PatchMapInputKind.dragEnd, gesture.last, reason));
     }
@@ -443,6 +483,7 @@ final class InputCoordinator {
   }
 
   void reset() {
+    _edit?.cancel(pending: true, restore: false);
     cancel(PatchMapEndReason.replaced);
     _pointers.clear();
     query.reset();
@@ -454,6 +495,7 @@ final class InputCoordinator {
     _active = active;
     if (!active) {
       cancel(PatchMapEndReason.inactive);
+      cancelEdit();
       _pointers.clear();
     }
   }
@@ -465,6 +507,8 @@ final class InputCoordinator {
     _gesture = null;
     _pendingMove = null;
     _pointers.clear();
+    _edit?.dispose();
+    _edit = null;
     query.reset();
     selection.dispose();
   }
@@ -494,6 +538,7 @@ final class _Gesture {
   final bool touch;
   PatchMapPosition last;
   bool zoomCandidate = false, holdRecognized = false;
+  bool editAllowed = false, editClaimed = false;
   double? zoomY;
   PatchMapDragMode? mode;
   Rect? range;
@@ -508,7 +553,7 @@ final class _PendingMove {
 }
 
 final class _Recognition {
-  const _Recognition(
+  _Recognition(
     this.epoch,
     this.pointer,
     this.position,
@@ -521,4 +566,5 @@ final class _Recognition {
   final PatchMapObject? target;
   final Offset tapStart;
   final bool zoomTap;
+  bool editAllowed = false;
 }

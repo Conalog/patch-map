@@ -24,6 +24,8 @@ final class SelectionOverlay {
   bool _disposed = false;
   int _outlineCount = 0, _resolvedTargetCount = 0;
   final _envelopes = <String, _SelectionEnvelope>{};
+  Set<String>? _containers;
+  bool _includeContainers = false;
   GeometrySnapshot? _geometry;
   double? _rotation;
   int _visit = 0, _drawableCount = 0;
@@ -53,11 +55,20 @@ final class SelectionOverlay {
         _aggregateDirty = true;
       }
     }
+    // A selected container's envelope also depends on its descendants.
+    final containers = _containers;
+    if (containers != null) {
+      for (final id in containers) {
+        _envelopes[id]!.ready = false;
+        _aggregateDirty = true;
+      }
+    }
     _geometry = geometry;
   }
 
   void _clearGeometry() {
     _envelopes.clear();
+    _containers = null;
     _geometry = null;
     _rotation = null;
     _aggregate = null;
@@ -129,6 +140,7 @@ final class SelectionOverlay {
     required double cameraScale,
     required double cameraRotation,
     Rect? visibleWorldBounds,
+    bool includeContainers = false,
   }) {
     if (_disposed) throw StateError('Selection overlay is disposed');
     if (!cameraScale.isFinite || cameraScale < 0 || !cameraRotation.isFinite) {
@@ -151,10 +163,13 @@ final class SelectionOverlay {
             style.strokeWidth,
           );
     final worldWidth = width / scale;
-    if (!identical(_geometry, geometry) || _rotation != cameraRotation) {
+    if (!identical(_geometry, geometry) ||
+        _rotation != cameraRotation ||
+        _includeContainers != includeContainers) {
       _clearGeometry();
       _geometry = geometry;
       _rotation = cameraRotation;
+      _includeContainers = includeContainers;
     }
     final visit = ++_visit;
     // Centered strokes may reach the miter limit; include antialias coverage.
@@ -177,7 +192,12 @@ final class SelectionOverlay {
         _resolvedTargetCount++;
         if (!entry.ready) {
           final target = geometry[id];
-          entry.quad = target == null
+          final isContainer = includeContainers && target?.isContainer == true;
+          if (isContainer) (_containers ??= {}).add(id);
+          final bounds = isContainer ? geometry.boundsFor(id) : null;
+          entry.quad = bounds != null
+              ? Affine.identity.projectRect(bounds)
+              : target == null
               ? null
               : selectionQuad(
                   target,
@@ -196,7 +216,11 @@ final class SelectionOverlay {
         }
       }
       if (_envelopes.length != _resolvedTargetCount) {
-        _envelopes.removeWhere((_, entry) => entry.visit != visit);
+        _envelopes.removeWhere((id, entry) {
+          if (entry.visit == visit) return false;
+          _containers?.remove(id);
+          return true;
+        });
         _aggregateDirty = true;
       }
       if (_envelopes.isEmpty) _clearGeometry();

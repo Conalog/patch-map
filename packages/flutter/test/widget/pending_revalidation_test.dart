@@ -458,6 +458,7 @@ final class _Backend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) {
     prepares++;
     return harness.backend.prepareUpdate(
@@ -467,6 +468,7 @@ final class _Backend extends SessionBackend {
       generation: generation,
       animate: animate,
       intent: intent,
+      atomic: atomic,
     );
   }
 

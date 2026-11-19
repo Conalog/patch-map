@@ -92,6 +92,16 @@ final class RequestLedger {
     _clear();
   }
 
+  void reject(Iterable<PatchMapFailure> failures) {
+    if (_settled) return;
+    _settled = true;
+    final result = PatchMapResult(PatchMapOutcome.rejected, failures: failures);
+    for (final request in _requests) {
+      request.completer.complete(result);
+    }
+    _clear();
+  }
+
   /// Preserve failures already published even if submission is interrupted.
   void recordFailures(Map<String, List<PatchMapFailure>> failures) {
     if (_settled || failures.isEmpty) return;

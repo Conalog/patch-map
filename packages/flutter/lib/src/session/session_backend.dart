@@ -72,6 +72,7 @@ abstract class SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   });
 
   /// Serializes intrinsic-image geometry refresh with ordinary preparations.

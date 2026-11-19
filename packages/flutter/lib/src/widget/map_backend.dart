@@ -429,6 +429,7 @@ final class MapBackend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) async {
     final epoch = _epoch;
     final previous = before as RenderPublication,
@@ -607,6 +608,10 @@ final class MapBackend extends SessionBackend {
         ];
       }
       if (failures.isNotEmpty) {
+        if (atomic) {
+          retain(previous);
+          return PreparedUpdate(previous, failures: failures);
+        }
         // A failed inherited projection also rejects the changed ancestor that
         // required it. Retry only the successful independent changes.
         final denied = <String>{...failures.keys};
@@ -921,6 +926,7 @@ final class MapBackend extends SessionBackend {
     Canvas canvas,
     double pixelRatio, {
     Iterable<String> selectedIds = const [],
+    bool includeSelectedContainers = false,
   }) {
     final publication = current;
     if (publication == null) return;
@@ -941,6 +947,7 @@ final class MapBackend extends SessionBackend {
         selectedIds,
         cameraScale: camera.scale,
         cameraRotation: camera.rotation,
+        includeContainers: includeSelectedContainers,
         visibleWorldBounds: selectedIds.isEmpty
             ? null
             : camera.visibleWorldBounds,

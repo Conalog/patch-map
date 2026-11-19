@@ -56,11 +56,10 @@ function machineEvents(names = REQUIRED_INSTALLED_ASSERTIONS) {
 }
 const machineOutput = (events) => `${events.map((event) => JSON.stringify(event)).join('\n')}\n`;
 
-test('installed consumer requires both exact asset and public runtime test witnesses', () => {
+test('installed consumer requires every exact asset and public runtime test witness', () => {
   assert.deepEqual(installedConsumerAssertions(machineOutput(machineEvents())), REQUIRED_INSTALLED_ASSERTIONS);
   for (const names of [
-    [REQUIRED_INSTALLED_ASSERTIONS[0]],
-    [REQUIRED_INSTALLED_ASSERTIONS[1]],
+    ...REQUIRED_INSTALLED_ASSERTIONS.map((_, missing) => REQUIRED_INSTALLED_ASSERTIONS.filter((_, index) => index !== missing)),
     [...REQUIRED_INSTALLED_ASSERTIONS].reverse(),
     [...REQUIRED_INSTALLED_ASSERTIONS, 'unreviewed extra scenario'],
     [...REQUIRED_INSTALLED_ASSERTIONS, REQUIRED_INSTALLED_ASSERTIONS[1]],

@@ -10,6 +10,7 @@ import { contractFingerprint } from '../conformance/compare.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export const REQUIRED_INSTALLED_ASSERTIONS = Object.freeze([
+  'installed consumer opts into a submitted long-press move',
   'installed bundled SVG and native font load',
   'installed public runtime draw update getValue and detach',
 ]);
