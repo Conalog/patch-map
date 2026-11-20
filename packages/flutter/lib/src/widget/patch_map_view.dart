@@ -684,6 +684,19 @@ class _PatchMapViewState extends State<PatchMapView>
         : readObjectGeometry(published.geometry, id);
   }
 
+  @override
+  List<PatchMapObject> selectableRelationsFor(String endpointId) {
+    if (phase != PatchMapPhase.ready) return const [];
+    final geometry = backend.current?.geometry;
+    if (geometry == null) return const [];
+    return List.unmodifiable([
+      for (final id in geometry.relationIdsFor(endpointId))
+        if (geometry[id] case final node?
+            when node.visible && !node.locked && node.bounds != null)
+          input.query.object(node),
+    ]);
+  }
+
   PatchMapResult _cameraCommand(void Function() action) {
     if (!session.commandsAllowed ||
         phase != PatchMapPhase.ready ||
@@ -780,7 +793,11 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   List<PatchMapObject> get selected => input.selection.selected;
   @override
-  PatchMapResult select(Iterable<String> ids, String mode) {
+  PatchMapResult select(
+    Iterable<String> ids,
+    String mode, {
+    bool recordHistory = false,
+  }) {
     if (!session.commandsAllowed ||
         phase != PatchMapPhase.ready ||
         !session.active) {
@@ -794,13 +811,31 @@ class _PatchMapViewState extends State<PatchMapView>
         ],
       );
     }
-    final result = switch (mode) {
-      'set' => input.selection.set(ids),
-      'add' => input.selection.add(ids),
-      'remove' => input.selection.remove(ids),
-      'toggle' => input.selection.toggle(ids),
-      _ => throw StateError('unknown selection command'),
-    };
+    final trackSelection = recordHistory && session.hasEditHistory;
+    if (trackSelection && (session.editInFlight || _editor.isDragging)) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: const [
+          PatchMapFailure('EDIT_BUSY', 'An edit is in progress'),
+        ],
+      );
+    }
+    final before = trackSelection ? input.selection.ids.toList() : null;
+    final wasDeferred = _deferInput;
+    if (trackSelection) _deferInput = true;
+    final SelectionResult result;
+    try {
+      result = switch (mode) {
+        'set' => input.selection.set(ids),
+        'add' => input.selection.add(ids),
+        'remove' => input.selection.remove(ids),
+        'toggle' => input.selection.toggle(ids),
+        _ => throw StateError('unknown selection command'),
+      };
+      if (before != null) session.recordSelection(before, input.selection.ids);
+    } finally {
+      _deferInput = wasDeferred;
+    }
     return PatchMapResult(
       result.missing.isEmpty
           ? PatchMapOutcome.applied

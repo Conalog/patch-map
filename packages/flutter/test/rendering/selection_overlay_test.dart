@@ -628,4 +628,27 @@ void main() {
       );
     },
   );
+
+  test('a horizontal relation has a visible selection outline', () async {
+    final overlay = SelectionOverlay(palette: ColorResolver());
+    addTearDown(overlay.dispose);
+    final geometry = snapshot([
+      item('a', x: 10, y: 10, size: 10, components: []),
+      item('b', x: 70, y: 10, size: 10, components: []),
+      {
+        'type': 'relations',
+        'id': 'links',
+        'links': [
+          {'source': 'a', 'target': 'b'},
+        ],
+        'style': {'width': 6},
+      },
+    ]);
+    final relation = geometry['links']!;
+    expect(relation.bounds!.isEmpty, isTrue);
+    expect(
+      await render(overlay, geometry, ['links']),
+      await reference([rect(relation.paintBounds!)]),
+    );
+  });
 }

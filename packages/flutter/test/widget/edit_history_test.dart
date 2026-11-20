@@ -103,7 +103,78 @@ Future<void> _selectByHold(
 List<String> _selected(PatchMapController map) =>
     map.selected.map((item) => item.id).toList();
 
+Map<String, Object?> _relation(String id, Object source, Object target) => {
+  'type': 'relations',
+  'id': id,
+  'links': [
+    {'source': source, 'target': target},
+  ],
+};
+
 void main() {
+  testWidgets('queries exact related endpoints and records opt-in selection', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    final notifiedDepths = <int>[];
+    await tester.pumpWidget(
+      _host(
+        map,
+        onEvent: (event) {
+          if (event.kind == PatchMapInputKind.selectionChange) {
+            notifiedDepths.add(map.editHistoryState.undoDepth);
+          }
+        },
+      ),
+    );
+    expect(map.getSelectableRelationsFor('a'), isEmpty);
+    expect(
+      (await _submit(
+        tester,
+        map.draw([
+          _rect('b', 45, 0),
+          _rect('c', 135, 0),
+          {
+            'type': 'group',
+            'id': 'parent',
+            'children': [
+              _rect('a', 0, 0),
+              _relation('string', {'id': 'a'}, 'b'),
+              {..._relation('hidden', 'a', 'b'), 'show': false},
+              {..._relation('locked', 'a', 'b'), 'locked': true},
+            ],
+          },
+          _relation('group-link', 'parent', 'c'),
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    final connected = map.getSelectableRelationsFor('a');
+    expect(connected.map((relation) => relation.id), ['string']);
+    expect(map.getSelectableRelationsFor('b').single.id, 'string');
+    expect(map.getSelectableRelationsFor('parent').single.id, 'group-link');
+    expect(map.getSelectableRelationsFor('missing'), isEmpty);
+
+    map.select(['c']);
+    expect(map.editHistoryState.undoDepth, 0);
+    expect(
+      map.select([connected.single.id], recordHistory: true).outcome,
+      PatchMapOutcome.applied,
+    );
+    map.select([connected.single.id], recordHistory: true);
+    expect(_selected(map), ['string']);
+    expect(map.editHistoryState.undoDepth, 1);
+    await tester.pump();
+    expect(notifiedDepths, [0, 1]);
+
+    expect((await map.undo()).result.outcome, PatchMapOutcome.applied);
+    expect(_selected(map), ['c']);
+    expect((await map.redo()).result.outcome, PatchMapOutcome.applied);
+    expect(_selected(map), ['string']);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('adds roots together without replacing the live diagram', (
     tester,
   ) async {
@@ -137,6 +208,7 @@ void main() {
     expect(map.editHistoryState.undoDepth, 1);
     expect(map.camera, camera);
     expect(map.getGeometry('string')!.bounds, isNotNull);
+    expect(map.getSelectableRelationsFor('new').single.id, 'string');
 
     final undo = map.undo();
     final removedWrite = await map.updateValues([
@@ -150,6 +222,7 @@ void main() {
     expect(map.rootIds, [..._ids, 'link']);
     expect(map.getGeometry('new'), isNull);
     expect(map.getValue(const PatchMapTarget('string')), isNull);
+    expect(map.getSelectableRelationsFor('new'), isEmpty);
     expect(_selected(map), ['a']);
 
     final invalid = await map.addObjects([
@@ -164,6 +237,7 @@ void main() {
     expect(redone.positions, isEmpty);
     expect(map.getGeometry('new')!.origin, const Offset(90, 55));
     expect(map.getValue(_b)!['label'], 'live');
+    expect(map.getSelectableRelationsFor('new').single.id, 'string');
     expect(_selected(map), ['new', 'string']);
     expect(map.camera, camera);
     expect(tester.takeException(), isNull);

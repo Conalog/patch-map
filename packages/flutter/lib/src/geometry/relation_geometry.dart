@@ -396,6 +396,9 @@ final class RelationDependencies {
   final Set<String> _relations;
   final Map<String, Set<String>> _direct, _descendant;
   Set<String> get relationIds => _relations;
+  Set<String> directIdsFor(String endpointId) =>
+      _direct[endpointId] ?? const {};
+
   Set<String> affectedIds(Iterable<String> changedIds) {
     final result = <String>{}, visited = <String>{};
     final pending = changedIds.toList();

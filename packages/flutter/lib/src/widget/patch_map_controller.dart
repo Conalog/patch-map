@@ -55,6 +55,12 @@ final class PatchMapController {
   /// Grid cells use their concrete IDs; components are not separate objects.
   /// Reading does not schedule a frame or wait for submission/animation.
   PatchMapObjectGeometry? getGeometry(String id) => _binding?.geometry(id);
+
+  /// Visible, unlocked relations that directly reference the given endpoint
+  /// in the published diagram. Use the concrete ID for a grid cell.
+  List<PatchMapObject> getSelectableRelationsFor(String endpointId) =>
+      _binding?.selectableRelationsFor(endpointId) ?? const [];
+
   PatchMapResult fit({
     Iterable<String>? targets,
     EdgeInsets padding = EdgeInsets.zero,
@@ -72,8 +78,11 @@ final class PatchMapController {
   PatchMapResult rotateTo(double rotation) =>
       _binding?.rotateTo(rotation) ?? _denial();
   List<PatchMapObject> get selected => _binding?.selected ?? const [];
-  PatchMapResult select(Iterable<String> ids) =>
-      _binding?.select(ids, 'set') ?? _denial();
+
+  /// Replace the selection. Pass [recordHistory] to record changed IDs as one
+  /// undoable selection action when editing history is enabled.
+  PatchMapResult select(Iterable<String> ids, {bool recordHistory = false}) =>
+      _binding?.select(ids, 'set', recordHistory: recordHistory) ?? _denial();
   PatchMapResult addSelection(Iterable<String> ids) =>
       _binding?.select(ids, 'add') ?? _denial();
   PatchMapResult removeSelection(Iterable<String> ids) =>
@@ -139,12 +148,17 @@ abstract class PatchMapBinding {
   Map<String, Object?>? value(PatchMapTarget target);
   List<String> get rootIds;
   PatchMapObjectGeometry? geometry(String id);
+  List<PatchMapObject> selectableRelationsFor(String endpointId);
   PatchMapResult fit(Iterable<String>? targets, EdgeInsets padding);
   PatchMapResult focus(Iterable<String> targets, EdgeInsets padding);
   PatchMapResult setCamera(Offset? center, double? scale, double? rotation);
   PatchMapResult rotateTo(double rotation);
   List<PatchMapObject> get selected;
-  PatchMapResult select(Iterable<String> ids, String mode);
+  PatchMapResult select(
+    Iterable<String> ids,
+    String mode, {
+    bool recordHistory = false,
+  });
   Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment);
   PatchMapEditHistoryState get editHistoryState;
   Future<PatchMapMoveResult> replayEdit({required bool redo});

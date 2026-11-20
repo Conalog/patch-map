@@ -25,9 +25,12 @@ Quad? selectionQuad(
   }
   final local = target.localBounds;
   if (local == null) {
-    // Relation paths already publish world-space logical bounds. No alternate
-    // relation path/bounds computation or child traversal belongs here.
-    final bounds = target.bounds;
+    // Use the published stroke envelope for a straight horizontal or vertical
+    // relation, whose logical bounds have zero area.
+    final logicalBounds = target.bounds;
+    final bounds = logicalBounds?.isEmpty == true
+        ? target.paintBounds
+        : logicalBounds;
     return bounds == null || bounds.isEmpty
         ? null
         : Affine.identity.projectRect(bounds);

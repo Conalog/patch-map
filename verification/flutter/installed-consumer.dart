@@ -111,6 +111,13 @@ void main() {
           'size': 10,
           'attrs': {'x': 60, 'y': 40},
         },
+        {
+          'type': 'relations',
+          'id': 'link',
+          'links': [
+            {'source': 'a', 'target': 'b'},
+          ],
+        },
       ]),
     );
     expect(drawn.outcome, PatchMapOutcome.applied);
@@ -140,12 +147,22 @@ void main() {
       ]),
     );
     expect(added.outcome, PatchMapOutcome.applied);
-    expect(controller.rootIds, ['a', 'b', 'label']);
+    expect(controller.rootIds, ['a', 'b', 'link', 'label']);
     expect(controller.selected.single.id, 'label');
     final undoAdd = controller.undo();
     await _progress(tester);
     expect((await undoAdd).result.outcome, PatchMapOutcome.applied);
-    expect(controller.rootIds, ['a', 'b']);
+    expect(controller.rootIds, ['a', 'b', 'link']);
+    expect(controller.selected.map((object) => object.id), ['a', 'b']);
+
+    final relation = controller.getSelectableRelationsFor('b').single;
+    expect(relation.id, 'link');
+    expect(
+      controller.select([relation.id], recordHistory: true).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(controller.selected.single.id, 'link');
+    expect((await controller.undo()).result.outcome, PatchMapOutcome.applied);
     expect(controller.selected.map((object) => object.id), ['a', 'b']);
   });
 

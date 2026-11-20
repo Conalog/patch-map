@@ -93,6 +93,7 @@ before publication. Fractional milliseconds retain microsecond rounding.
 | `getValue(target)` / `rootIds` | Immutable current effective record and authored root IDs in document order |
 | `addObjects(objects, selectAdded:)` | Append authored roots to the current diagram as one editor action |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
+| `getSelectableRelationsFor(endpointId)` | Visible, unlocked relations with resolved geometry that directly link the endpoint in the published map |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
 | `setCamera(center:, scale:, rotation:)` | World center, logical scale, radians |
@@ -107,6 +108,10 @@ before publication. Fractional milliseconds retain microsecond rounding.
 components. It returns null for an unknown ID or a detached/empty/preparing/failed
 map. Inactive maps expose their last publication; queued updates are not included.
 Held results remain immutable after updates, replacement or removal.
+
+`getSelectableRelationsFor` accepts a concrete element or grid cell ID.
+Only links that name that exact ID count. The query returns an empty list
+when the published diagram has no matching relation.
 
 ```dart
 final geometry = controller.getGeometry('grid-1.0.0');
@@ -291,6 +296,8 @@ Defaults remain blue `#2f80ed`, 2 logical pixels, centered, fixed screen width,
 and `all` (individual envelopes plus an aggregate for multiple objects).
 Modes are `all`, `elementOnly`, `groupOnly`, `hidden`; hiding decoration preserves
 selection and hits. `strokeAlignment` supports `center`, `inside`, `outside`.
+Straight horizontal and vertical relations use their published stroke bounds
+for the selection outline.
 `strokeScale: PatchMapSelectionStrokeScale.viewport` shrinks width on zoom-out,
 clamped between `minStrokeWidth` (default 1) and `strokeWidth`. Both widths must
 be finite and positive, with minimum <= base even for fixed mode. Invalid initial
@@ -420,10 +427,11 @@ zero. Each completed drag, alignment or distribution that changes positions
 adds one entry. Long-press selection, range selection on release, and clearing
 selection by double-tapping the empty canvas also add one entry when the
 selected IDs change. A hold that selects and then moves an object records the
-selection and movement in that order. Programmatic selection commands, cancelled
-selection previews and unchanged actions leave history intact. Adding roots
-records the whole batch and its selection in one entry. Undo removes the added
-roots and restores the previous selection. Redo restores the original records,
+selection and movement in that order. Hosts can record a selection they handle
+with `select(ids, recordHistory: true)`. By default, programmatic selection
+commands leave history intact, as do cancelled previews and unchanged actions.
+Adding roots records the whole batch and its selection in one entry. Undo
+removes the added roots and restores the previous selection. Redo restores the original records,
 identities and selection. A new entry drops the redo branch and capacity evicts
 the oldest entries.
 

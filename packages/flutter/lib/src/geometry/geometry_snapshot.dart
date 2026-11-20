@@ -103,6 +103,10 @@ final class GeometrySnapshot {
   final Map<String, int> _relationSlots;
   final PagedValues<RelationGeometry> _relations;
   final RelationDependencies _dependencies;
+
+  Set<String> relationIdsFor(String endpointId) =>
+      _dependencies.directIdsFor(endpointId);
+
   RelationGeometry? relationFor(String id) {
     final slot = _relationSlots[id];
     return slot == null ? null : _relations[slot];
