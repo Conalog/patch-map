@@ -82,6 +82,7 @@ void main() {
           PatchMapAlignment.bottom => bounds.bottom,
           PatchMapAlignment.centerX => bounds.center.dx,
           PatchMapAlignment.centerY => bounds.center.dy,
+          _ => throw StateError('Expected an edge or center alignment'),
         };
         expect(coordinate, closeTo(anchor, 1e-9));
         final horizontal = [
@@ -200,6 +201,85 @@ void main() {
     expect(map.selected.map((object) => object.id), ['short', 'long']);
   });
 
+  for (final (alignment, horizontal) in [
+    (PatchMapAlignment.distributeHorizontally, true),
+    (PatchMapAlignment.distributeVertically, false),
+  ]) {
+    testWidgets('${alignment.name} uses equal edge gaps in world order', (
+      tester,
+    ) async {
+      final map = PatchMapController();
+      await tester.pumpWidget(support.host(map));
+      await _draw(tester, map, [
+        _rect('first', 0, 20, 20, 10),
+        {
+          'type': 'group',
+          'id': 'parent',
+          'attrs': {'x': 40, 'y': 43, 'angle': 90},
+          'children': [_rect('middle', 0, 0, 20, 10)],
+        },
+        _rect('last', 100, 120, 30, 40),
+      ]);
+      map.setCamera(rotation: .4, scale: 2);
+      final camera = map.camera;
+      const ids = ['last', 'first', 'middle'];
+      map.select(ids);
+      Rect bounds(String id) => map.getGeometry(id)!.bounds!;
+      final before = {for (final id in ids) id: bounds(id)};
+
+      final task = map.alignSelection(alignment);
+      await support.progress(tester);
+      final move = await task;
+      expect(move.result.outcome, PatchMapOutcome.applied);
+      expect(move.positions.keys, ['middle']);
+      final position = move.positions['middle']!;
+      expect(position.dx, closeTo(horizontal ? 0 : 22, 1e-9));
+      expect(position.dy, closeTo(horizontal ? -25 : 0, 1e-9));
+      expect(bounds('first'), before['first']);
+      expect(bounds('last'), before['last']);
+      final middle = bounds('middle');
+      if (horizontal) {
+        expect(middle.left - bounds('first').right, closeTo(35, 1e-9));
+        expect(bounds('last').left - middle.right, closeTo(35, 1e-9));
+        expect(middle.top, closeTo(before['middle']!.top, 1e-9));
+      } else {
+        expect(middle.top - bounds('first').bottom, closeTo(35, 1e-9));
+        expect(bounds('last').top - middle.bottom, closeTo(35, 1e-9));
+        expect(middle.left, closeTo(before['middle']!.left, 1e-9));
+      }
+      expect(map.selected.map((target) => target.id), ids);
+      expect(map.camera, camera);
+      expect(
+        (await map.alignSelection(alignment)).result.outcome,
+        PatchMapOutcome.unchanged,
+      );
+    });
+  }
+
+  testWidgets('distributes overlapping objects with zero gaps if needed', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(support.host(map));
+    await _draw(tester, map, [
+      _rect('a', 0, 0, 30, 10),
+      _rect('b', 5, 0, 60, 10),
+      _rect('c', 20, 0, 10, 10),
+    ]);
+    map.select(['b', 'c', 'a']);
+    const command = PatchMapAlignment.distributeHorizontally;
+    final task = map.alignSelection(command);
+    await support.progress(tester);
+    expect((await task).positions, {
+      'b': const Offset(30, 0),
+      'c': const Offset(90, 0),
+    });
+    expect(
+      (await map.alignSelection(command)).result.outcome,
+      PatchMapOutcome.unchanged,
+    );
+  });
+
   testWidgets(
     'rejects insufficient and ineligible selections without moving anything',
     (tester) async {
@@ -224,6 +304,12 @@ void main() {
       map.select(['a']);
       final singleton = await map.alignSelection(PatchMapAlignment.left);
       expect(singleton.result.failures.single.code, 'INVALID_VALUE');
+      map.select(['a', 'locked']);
+      final pair = await map.alignSelection(
+        PatchMapAlignment.distributeHorizontally,
+      );
+      expect(pair.result.failures.single.code, 'INVALID_VALUE');
+      expect(pair.positions, isEmpty);
       for (final id in ['locked', 'hidden', 'link']) {
         map.select(['a', id]);
         final rejected = await map.alignSelection(PatchMapAlignment.left);

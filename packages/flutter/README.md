@@ -360,9 +360,15 @@ uses world-axis bounds. Edges align to the outermost selected edge on the
 chosen side. Centers align to the average of the selected centers on that axis.
 Grid bounds include every authored cell slot. Text without an authored size
 uses its measured layout bounds. Items, rectangles, grids, text and fixed-size
-images are eligible. The command rejects selections with
-fewer than two independent targets, unsupported geometry, hidden or locked
-targets, or a grid with a locked descendant.
+images are eligible. Alignment requires at least two independent targets.
+Unsupported geometry, hidden or locked targets, and grids with a locked
+descendant reject the command.
+
+Pass `distributeHorizontally` or `distributeVertically` for three or more
+independent targets. Distribution orders them by their leading edge and
+equalizes edge-to-edge gaps along that world axis. It keeps the selection's
+current span when the objects fit. If the span is too short, it extends the
+trailing edge and places the objects with zero gaps.
 
 Call the command on an active, ready map. The command is available independently
 of long-press editing. It applies the positions atomically and returns a

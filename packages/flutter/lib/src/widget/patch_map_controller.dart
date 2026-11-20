@@ -71,8 +71,8 @@ final class PatchMapController {
       _binding?.select(ids, 'toggle') ?? _denial();
   PatchMapResult clearSelection() => select(const []);
 
-  /// Align the current selection in world coordinates. Applied positions are
-  /// returned after the map submits the change.
+  /// Align or evenly space the current selection in world coordinates. Applied
+  /// positions are returned after the map submits the change.
   Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment) =>
       _binding?.alignSelection(alignment) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));

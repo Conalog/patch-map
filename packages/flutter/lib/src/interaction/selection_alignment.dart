@@ -11,6 +11,8 @@ import '../geometry/scene_geometry.dart';
 import 'edit_placement.dart';
 import 'selection_state.dart';
 
+typedef _AlignmentTarget = ({int slot, Rect bounds, EditPlacement placement});
+
 Future<PatchMapMoveResult> alignSelectedObjects(
   PatchMapAlignment alignment,
   GeometrySnapshot snapshot,
@@ -18,10 +20,14 @@ Future<PatchMapMoveResult> alignSelectedObjects(
   CommitMove commit,
 ) async {
   final ids = editRoots(snapshot, selection.ids);
-  if (ids.length < 2) {
-    return _rejected('INVALID_VALUE', 'Select at least two objects to align');
+  final minimum = alignment.minimumSelectionCount;
+  if (ids.length < minimum) {
+    return _rejected(
+      'INVALID_VALUE',
+      'This alignment requires at least $minimum selected objects',
+    );
   }
-  final targets = <({int slot, Rect bounds, EditPlacement placement})>[];
+  final targets = <_AlignmentTarget>[];
   for (final id in ids) {
     final slot = snapshot.topology.slots[id]!;
     final placement = EditPlacement.capture(snapshot, slot);
@@ -36,38 +42,34 @@ Future<PatchMapMoveResult> alignSelectedObjects(
     targets.add((slot: slot, bounds: bounds, placement: placement));
   }
 
-  final coordinates = [
-    for (final target in targets) _coordinate(alignment, target.bounds),
-  ];
-  final anchor = switch (alignment) {
+  final horizontal = switch (alignment) {
     PatchMapAlignment.left ||
-    PatchMapAlignment.top => coordinates.reduce(math.min),
     PatchMapAlignment.right ||
-    PatchMapAlignment.bottom => coordinates.reduce(math.max),
-    PatchMapAlignment.centerX || PatchMapAlignment.centerY => coordinates.fold(
-      0.0,
-      (sum, value) => sum + value / coordinates.length,
+    PatchMapAlignment.centerX ||
+    PatchMapAlignment.distributeHorizontally => true,
+    _ => false,
+  };
+  final deltas = switch (alignment) {
+    PatchMapAlignment.distributeHorizontally ||
+    PatchMapAlignment.distributeVertically => _distributionDeltas(
+      targets,
+      horizontal,
     ),
+    _ => _alignmentDeltas(targets, alignment),
   };
   final positions = <String, Offset>{};
   for (var i = 0; i < targets.length; i++) {
-    final delta = anchor - coordinates[i];
+    final delta = deltas[i];
     if (delta.abs() <= 1e-9) continue;
-    final placement = targets[i].placement;
-    final position = placement.translate(switch (alignment) {
-      PatchMapAlignment.left ||
-      PatchMapAlignment.right ||
-      PatchMapAlignment.centerX => Offset(delta, 0),
-      _ => Offset(0, delta),
-    });
+    final target = targets[i];
+    final id = snapshot.topology.ids[target.slot];
+    final position = target.placement.translate(
+      horizontal ? Offset(delta, 0) : Offset(0, delta),
+    );
     if (!position.isFinite) {
-      return _rejected(
-        'INVALID_GEOMETRY',
-        'Nonfinite alignment position',
-        ids[i],
-      );
+      return _rejected('INVALID_GEOMETRY', 'Nonfinite alignment position', id);
     }
-    if (position != placement.local) positions[ids[i]] = position;
+    if (position != target.placement.local) positions[id] = position;
   }
   if (positions.isEmpty) {
     return PatchMapMoveResult(
@@ -90,6 +92,61 @@ Future<PatchMapMoveResult> alignSelectedObjects(
   }, () {});
 }
 
+List<double> _alignmentDeltas(
+  List<_AlignmentTarget> targets,
+  PatchMapAlignment alignment,
+) {
+  final coordinates = [
+    for (final target in targets) _coordinate(alignment, target.bounds),
+  ];
+  final anchor = switch (alignment) {
+    PatchMapAlignment.left ||
+    PatchMapAlignment.top => coordinates.reduce(math.min),
+    PatchMapAlignment.right ||
+    PatchMapAlignment.bottom => coordinates.reduce(math.max),
+    _ => coordinates.fold(
+      0.0,
+      (sum, value) => sum + value / coordinates.length,
+    ),
+  };
+  for (var i = 0; i < coordinates.length; i++) {
+    coordinates[i] = anchor - coordinates[i];
+  }
+  return coordinates;
+}
+
+List<double> _distributionDeltas(
+  List<_AlignmentTarget> targets,
+  bool horizontal,
+) {
+  double start(Rect bounds) => horizontal ? bounds.left : bounds.top;
+  double end(Rect bounds) => horizontal ? bounds.right : bounds.bottom;
+  double extent(Rect bounds) => horizontal ? bounds.width : bounds.height;
+
+  targets.sort((a, b) {
+    final byStart = start(a.bounds).compareTo(start(b.bounds));
+    if (byStart != 0) return byStart;
+    final byExtent = extent(a.bounds).compareTo(extent(b.bounds));
+    return byExtent != 0 ? byExtent : a.slot.compareTo(b.slot);
+  });
+  final first = start(targets.first.bounds);
+  var last = end(targets.first.bounds), occupied = 0.0;
+  for (final target in targets) {
+    last = math.max(last, end(target.bounds));
+    occupied += extent(target.bounds);
+  }
+  // Keep the current span when it can hold every object. For overlapping
+  // objects that cannot fit, extend the trailing edge with zero gaps.
+  final gap = math.max(0.0, (last - first - occupied) / (targets.length - 1));
+  var cursor = first;
+  final deltas = <double>[];
+  for (final target in targets) {
+    deltas.add(cursor - start(target.bounds));
+    cursor += extent(target.bounds) + gap;
+  }
+  return deltas;
+}
+
 double _coordinate(PatchMapAlignment alignment, Rect bounds) =>
     switch (alignment) {
       PatchMapAlignment.left => bounds.left,
@@ -98,6 +155,7 @@ double _coordinate(PatchMapAlignment alignment, Rect bounds) =>
       PatchMapAlignment.bottom => bounds.bottom,
       PatchMapAlignment.centerX => bounds.left + bounds.width / 2,
       PatchMapAlignment.centerY => bounds.top + bounds.height / 2,
+      _ => throw StateError('Spacing computes its own coordinates'),
     };
 
 Rect? _alignmentBounds(TargetGeometry node) {
