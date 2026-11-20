@@ -103,7 +103,7 @@ double _coordinate(PatchMapAlignment alignment, Rect bounds) =>
 Rect? _alignmentBounds(TargetGeometry node) {
   final data = node.data;
   final size = switch ((node.target.type, data['size'])) {
-    ('item' || 'rect', _) => node.localBounds?.size,
+    ('item' || 'rect', _) || ('text', null) => node.localBounds?.size,
     ('text' || 'image', final Map size) => fixedSize(size),
     ('grid', _) => _gridSize(data),
     _ => null,

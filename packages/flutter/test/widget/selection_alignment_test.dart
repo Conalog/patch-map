@@ -11,6 +11,13 @@ Map<String, Object?> _rect(String id, num x, num y, num width, num height) => {
   'attrs': {'x': x, 'y': y},
 };
 
+Map<String, Object?> _text(String id, String text, num x, num y) => {
+  'type': 'text',
+  'id': id,
+  'text': text,
+  'attrs': {'x': x, 'y': y},
+};
+
 Future<void> _draw(
   WidgetTester tester,
   PatchMapController map,
@@ -168,6 +175,31 @@ void main() {
     expect(map.getGeometry('grid.0.1')!.origin, const Offset(85, 0));
   });
 
+  testWidgets('aligns a text-only selection by its measured bounds', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(support.host(map));
+    await _draw(tester, map, [
+      _text('short', 'Label', 0, 20),
+      _text('long', 'A much wider label', 200, 100),
+    ]);
+    map.select(['short', 'long']);
+    final anchor = map.getGeometry('long')!.bounds!;
+    expect(anchor.width, greaterThan(map.getGeometry('short')!.bounds!.width));
+
+    final task = map.alignSelection(PatchMapAlignment.right);
+    await support.progress(tester);
+    final moved = await task;
+    expect(moved.result.outcome, PatchMapOutcome.applied);
+    expect(moved.positions.keys, ['short']);
+    final aligned = map.getGeometry('short')!.bounds!;
+    expect(aligned.right, closeTo(anchor.right, 1e-9));
+    expect(aligned.top, 20);
+    expect(map.getGeometry('long')!.bounds, anchor);
+    expect(map.selected.map((object) => object.id), ['short', 'long']);
+  });
+
   testWidgets(
     'rejects insufficient and ineligible selections without moving anything',
     (tester) async {
@@ -181,12 +213,18 @@ void main() {
         _rect('a', 50, 20, 20, 10),
         {..._rect('locked', 0, 0, 20, 10), 'locked': true},
         {..._rect('hidden', 0, 40, 20, 10), 'show': false},
-        {'type': 'text', 'id': 'auto-text', 'text': 'No fixed size'},
+        {
+          'type': 'relations',
+          'id': 'link',
+          'links': [
+            {'source': 'a', 'target': 'locked'},
+          ],
+        },
       ]);
       map.select(['a']);
       final singleton = await map.alignSelection(PatchMapAlignment.left);
       expect(singleton.result.failures.single.code, 'INVALID_VALUE');
-      for (final id in ['locked', 'hidden', 'auto-text']) {
+      for (final id in ['locked', 'hidden', 'link']) {
         map.select(['a', id]);
         final rejected = await map.alignSelection(PatchMapAlignment.left);
         expect(rejected.result.outcome, PatchMapOutcome.rejected);
@@ -199,19 +237,17 @@ void main() {
   );
 
   testWidgets(
-    'rejects a queued alignment when an unchanged anchor changes size',
+    'rejects a queued alignment when a text anchor changes measured size',
     (tester) async {
       final map = PatchMapController();
       await tester.pumpWidget(support.host(map));
       await _draw(tester, map, [
         _rect('a', 0, 0, 20, 10),
-        _rect('b', 80, 40, 20, 10),
+        _text('b', 'Label', 80, 40),
       ]);
       map.select(['a', 'b']);
       final resize = map.updateValues(const [
-        PatchMapUpdate(PatchMapTarget('b'), {
-          'size': {'width': 30, 'height': 10},
-        }),
+        PatchMapUpdate(PatchMapTarget('b'), {'text': 'A much wider label'}),
       ]);
       final task = map.alignSelection(PatchMapAlignment.right);
       await support.progress(tester);

@@ -358,8 +358,9 @@ final move = await controller.alignSelection(PatchMapAlignment.left);
 Choose `left`, `right`, `top`, `bottom`, `centerX`, or `centerY`. The command
 uses world-axis bounds. Edges align to the outermost selected edge on the
 chosen side. Centers align to the average of the selected centers on that axis.
-Grid bounds include every authored cell slot. Items, rectangles, grids and
-fixed-size text and images are eligible. The command rejects selections with
+Grid bounds include every authored cell slot. Text without an authored size
+uses its measured layout bounds. Items, rectangles, grids, text and fixed-size
+images are eligible. The command rejects selections with
 fewer than two independent targets, unsupported geometry, hidden or locked
 targets, or a grid with a locked descendant.
 
