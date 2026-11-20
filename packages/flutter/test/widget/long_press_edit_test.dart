@@ -1,9 +1,12 @@
+import 'dart:ui' as ui;
+
 import 'package:conalog_patch_map/conalog_patch_map.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'patch_map_view_test.dart' as support;
-import 'selection_paint_test.dart' show bluePixels;
+import 'selection_paint_test.dart' show bluePixels, coloredPixels;
 
 Widget _host(
   PatchMapController controller, {
@@ -11,6 +14,7 @@ Widget _host(
   ValueChanged<PatchMapInputEvent>? onEvent,
   ValueChanged<PatchMapMoveResult>? onMove,
   String? Function(PatchMapObject)? resolve,
+  PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => Directionality(
   textDirection: TextDirection.ltr,
   child: Center(
@@ -24,6 +28,7 @@ Widget _host(
               editTargetResolver: resolve,
               onEvent: onEvent,
               onMoveResult: onMove,
+              selectionStyle: selectionStyle,
             ),
     ),
   ),
@@ -61,6 +66,22 @@ Future<TestGesture> _hold(WidgetTester tester, Offset local) async {
 
 Iterable<String> _ids(PatchMapController controller) =>
     controller.selected.map((object) => object.id);
+
+Future<int> _alphaAt(WidgetTester tester, Finder preview, Offset local) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(preview);
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      final offset = (local.dy.floor() * image.width + local.dx.floor()) * 4;
+      return bytes.getUint8(offset + 3);
+    } finally {
+      image.dispose();
+    }
+  }))!;
+}
 
 void main() {
   testWidgets('default and mid-press opt-in preserve regular hold behavior', (
@@ -133,7 +154,28 @@ void main() {
         )
         .last;
     expect(await bluePixels(tester, boundary: preview), greaterThan(30));
+    expect(await _alphaAt(tester, preview, center), closeTo(20, 1));
+    final outsideDefaultStroke = center - const Offset(29, 0);
+    expect(await _alphaAt(tester, preview, outsideDefaultStroke), 0);
     expect(await bluePixels(tester), 0);
+
+    const green = Color(0xff00aa00);
+    await tester.pumpWidget(
+      _host(
+        map,
+        enabled: true,
+        selectionStyle: const PatchMapSelectionStyle(
+          color: green,
+          strokeWidth: 6,
+        ),
+      ),
+    );
+    expect(
+      await coloredPixels(tester, green, boundary: preview),
+      greaterThan(30),
+    );
+    expect(await _alphaAt(tester, preview, outsideDefaultStroke), 255);
+    await tester.pumpWidget(_host(map, enabled: true));
     await finger.up();
     await tester.pump();
     expect(_ids(map), ['panels']);

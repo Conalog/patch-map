@@ -315,10 +315,12 @@ PatchMapView(
 ```
 
 The option defaults to `false`. An enabled hold on empty space starts a
-screen-aligned selection box. After dragging, release to replace the selection
-with the editable objects that intersect the box. A hold on an object selects
-it immediately. Hold a member of the current selection to move the selection
-together. During the drag, a translated outline previews the destination.
+screen-aligned selection box. The box uses the selection style's color and
+logical-pixel stroke width, with a fill at 8% of the stroke opacity. Release
+after dragging to replace the selection with the editable objects that
+intersect the box. A hold on an object selects it immediately. Hold a member
+of the current selection to move the selection together. During the drag, a
+translated outline previews the destination.
 Release applies the movement to the current diagram in one publication,
 including affected relation geometry. A double tap on empty space clears
 selection. The usual long-press duration and gesture thresholds still apply.

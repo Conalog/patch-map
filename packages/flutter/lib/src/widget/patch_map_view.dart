@@ -607,6 +607,7 @@ class _PatchMapViewState extends State<PatchMapView>
                               _editPreviewRepaint ??= _EditPreviewRepaint(),
                               backend.camera,
                               () => input.editPreview,
+                              backend.selectionOverlay.style,
                             ),
                           ),
                         ),
@@ -846,12 +847,25 @@ final class _EditPreviewRepaint extends ChangeNotifier {
 }
 
 final class _EditPreviewPainter extends CustomPainter {
-  _EditPreviewPainter(Listenable repaint, this.camera, this.preview)
-    : super(repaint: repaint);
+  _EditPreviewPainter(
+    Listenable repaint,
+    this.camera,
+    this.preview,
+    this.selectionStyle,
+  ) : super(repaint: repaint);
 
   final MapCamera camera;
   final ({Rect bounds, bool world})? Function() preview;
-  final _stroke = Paint()
+  final PatchMapSelectionStyle selectionStyle;
+  late final _rangeFill = Paint()
+    ..color = selectionStyle.color.withValues(
+      alpha: selectionStyle.color.a * .08,
+    );
+  late final _rangeStroke = Paint()
+    ..color = selectionStyle.color
+    ..strokeWidth = selectionStyle.strokeWidth
+    ..style = PaintingStyle.stroke;
+  late final _moveStroke = Paint()
     ..color = const Color(0xff2f80ed)
     ..style = PaintingStyle.stroke;
 
@@ -859,13 +873,20 @@ final class _EditPreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final value = preview();
     if (value == null) return;
-    _stroke.strokeWidth = value.world ? 2 / camera.scale : 2;
+    if (!value.world) {
+      canvas.drawRect(value.bounds, _rangeFill);
+      canvas.drawRect(value.bounds, _rangeStroke);
+      return;
+    }
+    _moveStroke.strokeWidth = 2 / camera.scale;
     canvas.save();
-    if (value.world) canvas.transform(camera.paintMatrix);
-    canvas.drawRect(value.bounds, _stroke);
+    canvas.transform(camera.paintMatrix);
+    canvas.drawRect(value.bounds, _moveStroke);
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_EditPreviewPainter old) => false;
+  bool shouldRepaint(_EditPreviewPainter old) =>
+      old.selectionStyle.color != selectionStyle.color ||
+      old.selectionStyle.strokeWidth != selectionStyle.strokeWidth;
 }

@@ -33,6 +33,7 @@ final class SelectionOverlay {
   Rect? _aggregate;
   Quad? _first;
   PatchMapSelectionStyle _style = const PatchMapSelectionStyle();
+  PatchMapSelectionStyle get style => _style;
   bool get isDisposed => _disposed;
   int get outlineCount => _outlineCount;
   int get resolvedTargetCount => _resolvedTargetCount;
