@@ -894,6 +894,21 @@ class _PatchMapViewState extends State<PatchMapView>
   );
 
   @override
+  Future<PatchMapResult> editRelation(
+    String id, {
+    List<Map<String, Object?>>? links,
+    Map<String, Object?>? metadata,
+    bool remove = false,
+  }) => session.editRelation(
+    id,
+    links: links,
+    metadata: metadata,
+    remove: remove,
+    restoreSelection: _restoreHistorySelection,
+    gestureInProgress: _editor.isDragging,
+  );
+
+  @override
   PatchMapEditHistoryState get editHistoryState => session.editHistoryState;
 
   @override

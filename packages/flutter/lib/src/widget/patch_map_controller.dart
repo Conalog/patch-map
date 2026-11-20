@@ -35,6 +35,20 @@ final class PatchMapController {
     bool selectAdded = true,
   }) => _binding?.addObjects(objects, selectAdded: selectAdded) ?? _detached();
 
+  /// Replace a relation's links and/or merge its top-level metadata keys.
+  /// The change is one undoable edit and completes after submission.
+  Future<PatchMapResult> updateRelation(
+    String id, {
+    List<Map<String, Object?>>? links,
+    Map<String, Object?>? metadata,
+  }) =>
+      _binding?.editRelation(id, links: links, metadata: metadata) ??
+      _detached();
+
+  /// Remove a root or nested relation as one undoable edit.
+  Future<PatchMapResult> removeRelation(String id) =>
+      _binding?.editRelation(id, remove: true) ?? _detached();
+
   /// Replace one captured alpha layer. Acceptance is synchronous; the next
   /// ordinary frame displays it. Authored/live values and selection stay intact.
   PatchMapPresentationResult setPresentation(
@@ -139,6 +153,12 @@ abstract class PatchMapBinding {
   Future<PatchMapResult> addObjects(
     List<Map<String, Object?>> objects, {
     required bool selectAdded,
+  });
+  Future<PatchMapResult> editRelation(
+    String id, {
+    List<Map<String, Object?>>? links,
+    Map<String, Object?>? metadata,
+    bool remove = false,
   });
   PatchMapPresentationResult setPresentation(
     String key,

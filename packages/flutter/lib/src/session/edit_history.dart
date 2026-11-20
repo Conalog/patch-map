@@ -5,6 +5,7 @@ import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/dataset_reader.dart';
 import '../geometry/affine.dart' show localTranslation;
+import '../presentation/field_operations.dart' show presentationEqual;
 import '../presentation/record_delta.dart';
 
 /// One bounded history for committed edits and editor selections.
@@ -59,6 +60,12 @@ final class EditHistory {
     List<String> after,
   ) => _append(EditHistoryEntry._(const {}, before, after, added: added));
 
+  void recordRelation(
+    RelationEdit relation,
+    List<String> before,
+    List<String> after,
+  ) => _append(EditHistoryEntry._(const {}, before, after, relation: relation));
+
   void _append(EditHistoryEntry entry) {
     _entries.replaceRange(_cursor, _entries.length, [entry]);
     if (_entries.length > limit) _entries.removeAt(0);
@@ -100,11 +107,13 @@ final class EditHistoryEntry {
     this._beforeSelection,
     this._afterSelection, {
     this.added,
+    this.relation,
   });
 
   final Map<String, _PositionChange> _positions;
   final List<String> _beforeSelection, _afterSelection;
   final DatasetDocument? added;
+  final RelationEdit? relation;
   bool get hasPositions => _positions.isNotEmpty;
   Iterable<String> get ids => _positions.keys;
 
@@ -138,6 +147,85 @@ final class EditHistoryEntry {
         },
       }),
   ];
+}
+
+typedef RelationVersion = ({
+  DatasetTarget authored,
+  Map<String, Object?> effective,
+});
+
+final class RelationEdit {
+  RelationEdit(
+    this.before,
+    this.after,
+    this.index, {
+    required this.changesLinks,
+    required this.metadataKeys,
+  });
+
+  RelationVersion before;
+  final RelationVersion? after;
+  final int index;
+  final bool changesLinks;
+  final Set<String> metadataKeys;
+  String get id => before.authored.id;
+  String? get parentId => before.authored.parentId;
+
+  RelationVersion? version({required bool redo}) => redo ? after : before;
+
+  bool matches(Map<String, Object?> current, Map<String, Object?> expected) {
+    if (changesLinks &&
+        !presentationEqual(current['links'], expected['links'])) {
+      return false;
+    }
+    if (metadataKeys.isEmpty) return true;
+    final raw = (current['attrs'] as Map?)?['metadata'];
+    if (raw != null && raw is! Map<String, Object?>) return false;
+    final currentMetadata = _metadata(current);
+    final expectedMetadata = _metadata(expected);
+    return metadataKeys.every(
+      (key) =>
+          currentMetadata.containsKey(key) ==
+              expectedMetadata.containsKey(key) &&
+          presentationEqual(currentMetadata[key], expectedMetadata[key]),
+    );
+  }
+
+  Map<String, Object?> apply(
+    Map<String, Object?> current,
+    Map<String, Object?> desired,
+  ) {
+    final result = Map<String, Object?>.of(current);
+    if (changesLinks) result['links'] = desired['links'];
+    if (metadataKeys.isNotEmpty) {
+      final attrs = <String, Object?>{
+        ...?(current['attrs'] as Map<String, Object?>?),
+      };
+      final metadata = Map<String, Object?>.of(_metadata(current));
+      final desiredMetadata = _metadata(desired);
+      for (final key in metadataKeys) {
+        if (desiredMetadata.containsKey(key)) {
+          metadata[key] = desiredMetadata[key];
+        } else {
+          metadata.remove(key);
+        }
+      }
+      if (metadata.isEmpty && (desired['attrs'] as Map?)?['metadata'] == null) {
+        attrs.remove('metadata');
+      } else {
+        attrs['metadata'] = Map<String, Object?>.unmodifiable(metadata);
+      }
+      if (attrs.isEmpty && desired['attrs'] == null) {
+        result.remove('attrs');
+      } else {
+        result['attrs'] = Map<String, Object?>.unmodifiable(attrs);
+      }
+    }
+    return Map<String, Object?>.unmodifiable(result);
+  }
+
+  Map<String, Object?> _metadata(Map<String, Object?> data) =>
+      (data['attrs'] as Map?)?['metadata'] as Map<String, Object?>? ?? const {};
 }
 
 typedef _PositionChange = (Offset, Offset);

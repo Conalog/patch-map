@@ -63,11 +63,8 @@ Future<void> _progress(WidgetTester tester, [int frames = 8]) async {
   }
 }
 
-Future<PatchMapResult> _submitted(
-  WidgetTester tester,
-  Future<PatchMapResult> request,
-) async {
-  PatchMapResult? result;
+Future<T> _submitted<T>(WidgetTester tester, Future<T> request) async {
+  T? result;
   Object? failure;
   StackTrace? stack;
   request.then(
@@ -164,6 +161,20 @@ void main() {
     expect(controller.selected.single.id, 'link');
     expect((await controller.undo()).result.outcome, PatchMapOutcome.applied);
     expect(controller.selected.map((object) => object.id), ['a', 'b']);
+
+    final changed = await _submitted(
+      tester,
+      controller.updateRelation('link', metadata: {'parent': 'b'}),
+    );
+    expect(changed.outcome, PatchMapOutcome.applied);
+    final data = controller.getValue(const PatchMapTarget('link'))!;
+    expect((data['attrs'] as Map)['metadata'], {'parent': 'b'});
+    final removed = await _submitted(tester, controller.removeRelation('link'));
+    expect(removed.outcome, PatchMapOutcome.applied);
+    expect(controller.getSelectableRelationsFor('b'), isEmpty);
+    final restored = await _submitted(tester, controller.undo());
+    expect(restored.result.outcome, PatchMapOutcome.applied);
+    expect(controller.getSelectableRelationsFor('b').single.id, 'link');
   });
 
   testWidgets('installed consumer opts into a submitted long-press move', (

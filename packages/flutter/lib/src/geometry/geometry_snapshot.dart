@@ -30,12 +30,14 @@ final class GeometrySnapshot {
     MeasureText measure, {
     MeasureImage? measureImage,
     GeometrySnapshot? previous,
+    Map<String, Object?>? relationValue,
   }) {
     final initial = SceneGeometry.compile(
       document,
       measure,
       measureImage: measureImage,
       retained: previous == null ? null : (id) => previous[id],
+      relationValue: relationValue,
     );
     final topology = GeometryTopology(document);
     final baseNodes = PagedValues<TargetGeometry>.fromList([

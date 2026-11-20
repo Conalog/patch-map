@@ -92,6 +92,7 @@ before publication. Fractional milliseconds retain microsecond rounding.
 | `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
 | `getValue(target)` / `rootIds` | Immutable current effective record and authored root IDs in document order |
 | `addObjects(objects, selectAdded:)` | Append authored roots to the current diagram as one editor action |
+| `updateRelation(id, links:, metadata:)` / `removeRelation(id)` | Undoable edits for root and nested relations |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
 | `getSelectableRelationsFor(endpointId)` | Visible, unlocked relations with resolved geometry that directly link the endpoint in the published map |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
@@ -407,6 +408,16 @@ to retain the current selection. An edit in flight or a long-press gesture
 rejects another addition with `EDIT_BUSY`. Empty input returns `unchanged`.
 Success follows the first matching frame submission. Image decode and download
 still use `onImageFailure` and asynchronous resource loading.
+
+### Edit relations
+
+Call `updateRelation(id, links: ...)` to replace the links on a root or nested
+relation. Call `updateRelation(id, metadata: ...)` to merge top-level keys into
+`attrs.metadata`, or pass both arguments to record one edit. `removeRelation(id)`
+removes the relation and drops its ID from selection. Its endpoints remain in the
+diagram. These commands require an active, ready map and reject locked relations.
+Results follow submission. Undo and redo restore the changed relation record and
+selection. Replay rejects newer writes to edited fields or a newly locked relation.
 
 ### Undo and redo editor actions
 

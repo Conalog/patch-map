@@ -29,7 +29,7 @@ class DatasetDocument {
         !roots
             .skip(start)
             .indexed
-            .every((entry) => identical(entry.$2, added.roots[entry.$1]))) {
+            .every((entry) => entry.$2['id'] == added.roots[entry.$1]['id'])) {
       throw DatasetException(
         'EDIT_CONFLICT',
         r'$',
@@ -44,6 +44,55 @@ class DatasetDocument {
       }),
     );
   }
+
+  int indexOf(DatasetTarget target) => _childrenOf(
+    target.parentId,
+  ).indexWhere((child) => child['id'] == target.id);
+
+  DatasetDocument changeRelation(
+    String id, {
+    required String? parentId,
+    required int index,
+    required DatasetTarget? replacement,
+  }) {
+    final nextTargets = Map<String, DatasetTarget>.of(targets);
+    final siblings = _childrenOf(parentId).toList();
+    if (targets.containsKey(id)) siblings.removeAt(index);
+    if (replacement == null) {
+      nextTargets.remove(id);
+    } else {
+      siblings.insert(index, replacement.data);
+      nextTargets[id] = replacement;
+    }
+
+    List<Map<String, Object?>> replaceChildren(
+      String? groupId,
+      List<Map<String, Object?>> children,
+    ) {
+      if (groupId == null) return List.unmodifiable(children);
+      final group = nextTargets[groupId]!;
+      final updated = DatasetTarget(
+        id: groupId,
+        type: 'group',
+        parentId: group.parentId,
+        data: frozen({...group.data, 'children': List.unmodifiable(children)}),
+      );
+      nextTargets[groupId] = updated;
+      final parents = _childrenOf(group.parentId).toList();
+      parents[indexOf(group)] = updated.data;
+      return replaceChildren(group.parentId, parents);
+    }
+
+    return DatasetDocument._(
+      replaceChildren(parentId, siblings),
+      Map.unmodifiable(nextTargets),
+    );
+  }
+
+  List<Map<String, Object?>> _childrenOf(String? groupId) => groupId == null
+      ? roots
+      : (targets[groupId]!.data['children']! as List)
+            .cast<Map<String, Object?>>();
 }
 
 class DatasetTarget {
@@ -72,6 +121,12 @@ class DatasetReader {
   const DatasetReader();
   DatasetDocument read(Object? input, {int rootOffset = 0}) =>
       _Candidate().read(input, rootOffset);
+
+  DatasetTarget readRelation(Map<String, Object?> input, String? parentId) {
+    final candidate = _Candidate();
+    final data = candidate._element(input, r'$.relation', parentId);
+    return candidate._targets[data['id']]!;
+  }
 }
 
 const _elementBase = ['type', 'id', 'label', 'show', 'locked', 'attrs'];

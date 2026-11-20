@@ -112,6 +112,220 @@ Map<String, Object?> _relation(String id, Object source, Object target) => {
 };
 
 void main() {
+  testWidgets('edits and removes nested relations in the document history', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    final camera = map.camera;
+    final addition = await _submit(
+      tester,
+      map.addObjects([
+        {
+          'type': 'group',
+          'id': 'wiring',
+          'children': [
+            _rect('sibling', 20, 30),
+            {
+              ..._relation('string', 'a', 'b'),
+              'attrs': {
+                'display': 'string',
+                'metadata': {'parent': 'inverter-a', 'color': 'blue'},
+              },
+            },
+            _rect('last-sibling', 25, 30),
+          ],
+        },
+      ], selectAdded: false),
+    );
+    expect(addition.outcome, PatchMapOutcome.applied);
+    const string = PatchMapTarget('string');
+    const group = PatchMapTarget('wiring');
+    List<Object?> children() => [
+      for (final child in map.getValue(group)!['children'] as List)
+        (child as Map)['id'],
+    ];
+    Map stringMetadata() =>
+        (map.getValue(string)!['attrs'] as Map)['metadata'] as Map;
+
+    map.select(['string', 'b']);
+    final prior = map.updateValues([
+      const PatchMapUpdate(string, {'label': 'retained label'}),
+      const PatchMapUpdate(group, {'label': 'retained group'}),
+    ]);
+    final changed = map.updateRelation(
+      'string',
+      links: [
+        {'source': 'a', 'target': 'c'},
+      ],
+      metadata: {'parent': 'inverter-b'},
+    );
+    expect(
+      (await map.updateValues([
+        const PatchMapUpdate(string, {'label': 'concurrent'}),
+      ])).failures.single.code,
+      'EDIT_BUSY',
+    );
+    expect((await _submit(tester, prior)).outcome, PatchMapOutcome.applied);
+    expect((await _submit(tester, changed)).outcome, PatchMapOutcome.applied);
+    expect(stringMetadata(), {'parent': 'inverter-b', 'color': 'blue'});
+    expect(map.getValue(string)!['label'], 'retained label');
+    expect(map.getSelectableRelationsFor('c').single.id, 'string');
+    expect(map.getSelectableRelationsFor('b').single.id, 'link');
+    expect(_selected(map), ['string', 'b']);
+    expect(map.editHistoryState.undoDepth, 2);
+
+    expect(
+      (await _submit(tester, map.removeRelation('string'))).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(string), isNull);
+    expect(map.getValue(group)!['label'], 'retained group');
+    expect(children(), ['sibling', 'last-sibling']);
+    expect(map.getGeometry('last-sibling')!.origin, const Offset(25, 30));
+    expect(map.getSelectableRelationsFor('c'), isEmpty);
+    expect(_selected(map), ['b']);
+    expect(map.camera, camera);
+
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(children(), ['sibling', 'string', 'last-sibling']);
+    expect(map.getValue(string)!['label'], 'retained label');
+    expect(_selected(map), ['string', 'b']);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(stringMetadata()['parent'], 'inverter-a');
+    expect(map.getSelectableRelationsFor('c'), isEmpty);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.rootIds, [..._ids, 'link']);
+
+    for (var i = 0; i < 3; i++) {
+      expect(
+        (await _submit(tester, map.redo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+    }
+    expect(children(), ['sibling', 'last-sibling']);
+    expect(_selected(map), ['b']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rejects invalid or locked relation edits and stale replay', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    const target = PatchMapTarget('link');
+    expect(
+      (await map.updateRelation('link')).outcome,
+      PatchMapOutcome.unchanged,
+    );
+    expect(
+      (await map.updateRelation(
+        'link',
+        links: [
+          {'target': 'b'},
+        ],
+      )).outcome,
+      PatchMapOutcome.rejected,
+    );
+    expect((await map.removeRelation('a')).outcome, PatchMapOutcome.rejected);
+    expect(map.editHistoryState.undoDepth, 0);
+
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelation('link', metadata: {'parent': 'inverter'}),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    await _submit(
+      tester,
+      map.updateValues([
+        const PatchMapUpdate(target, {'locked': true}),
+      ]),
+    );
+    expect(
+      (await map.removeRelation('link')).failures.single.code,
+      'LOCKED_TARGET',
+    );
+    expect(
+      (await _submit(tester, map.undo())).result.failures.single.code,
+      'EDIT_CONFLICT',
+    );
+    expect(map.editHistoryState.undoDepth, 1);
+    expect(map.getValue(target), isNotNull);
+    await _submit(
+      tester,
+      map.updateValues([
+        const PatchMapUpdate(target, {'locked': false}),
+      ]),
+    );
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+  });
+
+  testWidgets('allows link edits on a relation with legacy scalar metadata', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    expect(
+      (await _submit(
+        tester,
+        map.draw([
+          ..._scene,
+          {
+            ..._relation('legacy', 'a', 'b'),
+            'attrs': {'metadata': 'legacy'},
+          },
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(
+      (await map.updateRelation(
+        'legacy',
+        metadata: {'parent': 'inverter'},
+      )).failures.single.code,
+      'INVALID_DATA',
+    );
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelation(
+          'legacy',
+          links: [
+            {'source': 'a', 'target': 'c'},
+          ],
+        ),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getSelectableRelationsFor('c').single.id, 'legacy');
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getSelectableRelationsFor('c'), isEmpty);
+    expect(
+      (map.getValue(const PatchMapTarget('legacy'))!['attrs']
+          as Map)['metadata'],
+      'legacy',
+    );
+  });
+
   testWidgets('queries exact related endpoints and records opt-in selection', (
     tester,
   ) async {

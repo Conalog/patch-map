@@ -33,12 +33,12 @@ replay advances the cursor and restores IDs without a dataset revision.
 External writes to retained position axes clear both branches. During inactivity,
 the published cursor and scene retain their common submission obligation.
 
-Detach and validate appended roots at admission. Process earlier value updates
-before rebuilding topology and spatial membership with surviving slot IDs,
-effective geometry and resources. History stores the added fragment and
-selection IDs. Undo removes that fragment and its live value and presentation
-addresses. Writes to those addresses reject during removal. Failure before
-publication leaves scene, selection and cursor intact.
+Validate structural inputs at admission. Process earlier values before rebuilding
+topology and spatial membership with retained geometry and resources. History
+stores changed fragments and selection IDs. Relation replay checks edited fields
+and unlocked ancestry. Writes to targets under structural change are rejected.
+Removal discards live and presentation addresses. Failure before publication
+preserves the scene, selection and history cursor.
 
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.

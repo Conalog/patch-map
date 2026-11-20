@@ -408,8 +408,9 @@ final class MapBackend extends SessionBackend {
   @override
   Future<SessionPublication> prepareStructure(
     SessionPublication before,
-    DatasetDocument document,
-  ) async {
+    DatasetDocument document, {
+    Map<String, Object?>? relationValue,
+  }) async {
     final previous = before as RenderPublication;
     final resources = previous.resources;
     return resources.text.withPreparation(() {
@@ -417,6 +418,7 @@ final class MapBackend extends SessionBackend {
         document,
         resources.text.measure,
         previous: previous.geometry,
+        relationValue: relationValue,
       );
       final changed = <int>[];
       final pages = <RenderPage>[];
@@ -436,13 +438,20 @@ final class MapBackend extends SessionBackend {
               nodes.add(prior!);
             } else {
               reusePage = false;
-              final rendered = resources.compiler.compile(
-                node,
-                initialLoad: false,
-                previous: prior,
-                relation: geometry.relationFor(node.id),
-              )..retain();
-              compiled.add(rendered);
+              final slot = previous.geometry.topology.slots[node.id];
+              final retained = slot == null ? null : previous.node(slot);
+              final DrawNode rendered;
+              if (identical(retained?.geometry, node)) {
+                rendered = retained!;
+              } else {
+                rendered = resources.compiler.compile(
+                  node,
+                  initialLoad: false,
+                  previous: retained,
+                  relation: geometry.relationFor(node.id),
+                )..retain();
+                compiled.add(rendered);
+              }
               nodes.add(rendered);
               changed.add(i * geometry.nodes.pageSize + j);
             }
