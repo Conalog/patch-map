@@ -16,8 +16,13 @@ Quad? selectionQuad(
   TargetGeometry target, {
   required ColorResolver palette,
   required double cameraRotation,
+  Rect? containerBounds,
 }) {
-  if (target.isContainer) return null;
+  if (target.isContainer) {
+    return containerBounds == null
+        ? null
+        : Affine.identity.projectRect(containerBounds);
+  }
   final local = target.localBounds;
   if (local == null) {
     // Relation paths already publish world-space logical bounds. No alternate

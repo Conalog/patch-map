@@ -195,15 +195,13 @@ final class SelectionOverlay {
           final target = geometry[id];
           final isContainer = includeContainers && target?.isContainer == true;
           if (isContainer) (_containers ??= {}).add(id);
-          final bounds = isContainer ? geometry.boundsFor(id) : null;
-          entry.quad = bounds != null
-              ? Affine.identity.projectRect(bounds)
-              : target == null
+          entry.quad = target == null
               ? null
               : selectionQuad(
                   target,
                   palette: palette,
                   cameraRotation: cameraRotation,
+                  containerBounds: isContainer ? geometry.boundsFor(id) : null,
                 );
           entry.bounds = entry.quad?.bounds;
           entry.ready = true;

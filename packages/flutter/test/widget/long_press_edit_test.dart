@@ -265,6 +265,96 @@ void main() {
     expect(_ids(map), ['a', 'b']);
   });
 
+  for (final mode in [
+    PatchMapSelectionDisplayMode.all,
+    PatchMapSelectionDisplayMode.elementOnly,
+  ]) {
+    testWidgets('empty space within the selection moves it in ${mode.name}', (
+      tester,
+    ) async {
+      final map = PatchMapController(), moves = <PatchMapMoveResult>[];
+      final selectionChanges = <PatchMapInputEvent>[];
+      await tester.pumpWidget(
+        _host(
+          map,
+          enabled: true,
+          selectionStyle: PatchMapSelectionStyle(displayMode: mode),
+          onMove: moves.add,
+          onEvent: (event) {
+            if (event.kind == PatchMapInputKind.selectionChange) {
+              selectionChanges.add(event);
+            }
+          },
+        ),
+      );
+      await _draw(tester, map, [
+        {
+          ..._rect('a', -70, -10),
+          'stroke': {'width': 16, 'color': '#333333'},
+        },
+        _rect('b', 50, -10),
+      ], rotation: .4);
+      map.setCamera(scale: 1.6);
+      map.select(['a', 'b']);
+      await tester.pump();
+      selectionChanges.clear();
+
+      // The authored stroke extends the selection bounds above the layout.
+      final start = map.toLocal(const Offset(0, -16))!;
+      const dragBy = Offset(48, 24);
+      final delta = map.toWorld(start + dragBy)! - map.toWorld(start)!;
+      final finger = await _hold(tester, start);
+      await finger.moveBy(dragBy);
+      await tester.pump();
+      expect(map.getGeometry('a')!.origin, const Offset(-70, -10));
+      await finger.up();
+      await support.progress(tester);
+      expect(moves, hasLength(1));
+      expect(moves.single.result.outcome, PatchMapOutcome.applied);
+      expect(moves.single.positions.keys, ['a', 'b']);
+      expect(_ids(map), ['a', 'b']);
+      expect(selectionChanges, isEmpty);
+      expect(
+        (map.getGeometry('a')!.origin - const Offset(-70, -10) - delta)
+            .distance,
+        lessThan(1e-9),
+      );
+      expect(
+        (map.getGeometry('b')!.origin - const Offset(50, -10) - delta).distance,
+        lessThan(1e-9),
+      );
+
+      final a = map.toLocal(map.getGeometry('a')!.center!)!;
+      final range = await _hold(tester, a - const Offset(65, 45));
+      await range.moveTo(_topLeft(tester) + a);
+      await range.up();
+      await tester.pump();
+      expect(_ids(map), ['a']);
+      expect(moves, hasLength(1));
+    });
+  }
+
+  testWidgets('an unselected object inside the bounds keeps hit priority', (
+    tester,
+  ) async {
+    final map = PatchMapController(), moves = <PatchMapMoveResult>[];
+    await tester.pumpWidget(_host(map, enabled: true, onMove: moves.add));
+    await _draw(tester, map, [
+      _rect('a', -70, -10),
+      _rect('b', 50, -10),
+      _rect('c', -10, -10),
+    ]);
+    map.select(['a', 'b']);
+    final finger = await _hold(tester, map.toLocal(Offset.zero)!);
+    expect(_ids(map), ['c']);
+    await finger.moveBy(const Offset(30, 10));
+    await finger.up();
+    await support.progress(tester);
+    expect(moves.single.positions, {'c': const Offset(20, 0)});
+    expect(map.getGeometry('a')!.origin, const Offset(-70, -10));
+    expect(map.getGeometry('b')!.origin, const Offset(50, -10));
+  });
+
   testWidgets(
     'disabling during a move restores prior selection and consumes it',
     (tester) async {
@@ -294,7 +384,7 @@ void main() {
     await tester.pumpWidget(_host(map, enabled: true, onMove: moves.add));
     await _draw(tester, map, [_rect('a', 0, 0), _rect('b', 60, 0)]);
     map.select(['a', 'b']);
-    final finger = await _hold(tester, map.toLocal(const Offset(10, 10))!);
+    final finger = await _hold(tester, map.toLocal(const Offset(40, 10))!);
     await finger.moveBy(const Offset(50, 20));
     final updated = map.updateValues(const [
       PatchMapUpdate(PatchMapTarget('b'), {

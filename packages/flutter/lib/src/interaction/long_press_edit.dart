@@ -6,9 +6,11 @@ import '../api/events.dart';
 import '../api/result.dart';
 import '../api/target.dart';
 import '../api/update.dart';
+import '../dataset/colors.dart';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../geometry/scene_geometry.dart';
+import '../geometry/selection_geometry.dart';
 import '../viewport/camera.dart';
 import 'input_query.dart';
 import 'selection_state.dart';
@@ -27,6 +29,7 @@ final class LongPressEdit {
   LongPressEdit({
     required this.currentGeometry,
     required this.camera,
+    required this.palette,
     required this.query,
     required this.selection,
     required this.invalidate,
@@ -38,6 +41,7 @@ final class LongPressEdit {
 
   final GeometrySnapshot? Function() currentGeometry;
   final MapCamera camera;
+  final ColorResolver palette;
   final InputQuery query;
   final SelectionState selection;
   final void Function() invalidate;
@@ -66,11 +70,13 @@ final class LongPressEdit {
     if (_pending != null) return true;
     final snapshot = currentGeometry();
     if (snapshot == null) return false;
-    final hit = _point(snapshot, local);
+    final world = camera.localToWorld(local);
+    final hit = _point(snapshot, world);
     final initial = selection.ids.toList();
-    final ids = hit == null
-        ? const <String>[]
-        : _roots(snapshot, initial.contains(hit) ? initial : [hit]);
+    final onSelection = hit == null
+        ? _selectionContains(snapshot, initial, world)
+        : initial.contains(hit);
+    final ids = onSelection ? _roots(snapshot, initial) : [?hit];
     final targets = <String, _Placement>{};
     Rect? bounds;
     for (final id in ids) {
@@ -100,7 +106,7 @@ final class LongPressEdit {
       bounds,
     );
     _drag = drag;
-    if (hit != null) {
+    if (targets.isNotEmpty) {
       // A reentrant callback can change selection, cancel, or replace the map.
       final changed =
           initial.length != ids.length || !initial.every(targets.containsKey);
@@ -232,7 +238,7 @@ final class LongPressEdit {
     final snapshot = currentGeometry();
     if (snapshot != null &&
         _pending == null &&
-        _point(snapshot, local) == null) {
+        _point(snapshot, camera.localToWorld(local)) == null) {
       selection.clear();
     }
   }
@@ -266,11 +272,36 @@ final class LongPressEdit {
     cancel(pending: true, restore: false);
   }
 
-  String? _point(GeometrySnapshot snapshot, Offset local) {
+  bool _selectionContains(
+    GeometrySnapshot snapshot,
+    List<String> ids,
+    Offset world,
+  ) {
+    Quad? first;
+    Rect? aggregate;
+    for (final id in ids) {
+      final target = snapshot[id]!;
+      final quad = selectionQuad(
+        target,
+        palette: palette,
+        cameraRotation: camera.rotation,
+        containerBounds: target.isContainer ? snapshot.boundsFor(id) : null,
+      );
+      if (quad == null) continue;
+      if (first == null) {
+        first = quad;
+      } else {
+        aggregate = (aggregate ?? first.bounds).expandToInclude(quad.bounds);
+      }
+    }
+    return aggregate?.contains(world) ?? first?.contains(world) ?? false;
+  }
+
+  String? _point(GeometrySnapshot snapshot, Offset world) {
     String? id;
     query.point(
       snapshot,
-      camera.localToWorld(local),
+      world,
       camera.rotation,
       accept: (hit) => (id = _resolve(snapshot, hit)) != null,
     );

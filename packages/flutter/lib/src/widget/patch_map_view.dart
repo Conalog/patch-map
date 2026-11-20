@@ -109,6 +109,7 @@ class _PatchMapViewState extends State<PatchMapView>
   late final LongPressEdit _editor = LongPressEdit(
     currentGeometry: input.currentGeometry,
     camera: backend.camera,
+    palette: backend.palette,
     query: input.query,
     selection: input.selection,
     invalidate: _invalidateEditPreview,

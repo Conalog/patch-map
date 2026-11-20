@@ -314,15 +314,19 @@ PatchMapView(
 );
 ```
 
-The option defaults to `false`. An enabled hold on empty space starts a
-screen-aligned selection box. The box uses the selection style's color and
-logical-pixel stroke width, with a fill at 8% of the stroke opacity. Release
-after dragging to replace the selection with the editable objects that
-intersect the box. A hold on an object selects it immediately. Hold a member
-of the current selection to move the selection together. During the drag, a
-translated outline previews the destination.
+The option defaults to `false`. Hold a selected object or an empty point
+inside the current selection bounds to move the selection together. The
+selection bounds follow the object's outline for a singleton and enclose all
+selected outlines on the world axes for a multi-selection. The drag uses these
+bounds in every selection display mode. A hold on another editable object
+selects it immediately. During a move, a translated outline previews the
+destination.
 Release applies the movement to the current diagram in one publication,
-including affected relation geometry. A double tap on empty space clears
+including affected relation geometry. A hold on empty space outside the
+selection bounds starts a screen-aligned selection box. The box uses the
+selection style's color and logical-pixel stroke width, with a fill at 8% of
+the stroke opacity. Release after dragging to replace the selection with the
+editable objects that intersect the box. A double tap on empty space clears
 selection. The usual long-press duration and gesture thresholds still apply.
 
 The default target for a grid cell is its grid. For other hits, the target is
