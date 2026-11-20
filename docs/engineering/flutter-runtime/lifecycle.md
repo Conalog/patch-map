@@ -27,6 +27,15 @@ or paint failure stops that generation and settles all outstanding requests with
 the whole-map failure. Ordinary updates cannot restart it; only a new accepted
 replacement starts recovery.
 
+The optional position history belongs to the accepted generation. The same
+atomic drain commits edited coordinates, moves the history cursor, and restores
+selection on replay. Its entries retain IDs and local positions. Successful
+external writes to a retained position axis clear both branches. Successful
+edit results and button availability are observed after the matching
+submission. If a published edit is waiting for a frame during inactivity, the
+retained scene and cursor resume together through the existing submission
+obligation.
+
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.
 Reset barriers and subsequent child-field sets are kept as operations, not an

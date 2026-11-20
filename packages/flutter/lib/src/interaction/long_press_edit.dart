@@ -26,6 +26,7 @@ final class LongPressEdit {
     required this.selection,
     required this.invalidate,
     required this.resolveTarget,
+    required this.isCommitPending,
     required this.commit,
     required this.notify,
     required this.reportError,
@@ -38,12 +39,14 @@ final class LongPressEdit {
   final SelectionState selection;
   final void Function() invalidate;
   final EditTargetResolver resolveTarget;
+  final bool Function() isCommitPending;
   final CommitMove commit;
   final void Function(PatchMapMoveResult) notify;
   final void Function(Object, StackTrace) reportError;
   _EditDrag? _drag;
   _EditDrag? _pending;
   bool _disposed = false;
+  bool get isDragging => _drag != null;
 
   ({Rect bounds, bool world})? get preview {
     final drag = _drag ?? _pending;
@@ -59,7 +62,7 @@ final class LongPressEdit {
   }
 
   bool begin(Offset local) {
-    if (_pending != null) return true;
+    if (_pending != null || isCommitPending()) return true;
     final snapshot = currentGeometry();
     if (snapshot == null) return false;
     final world = camera.localToWorld(local);

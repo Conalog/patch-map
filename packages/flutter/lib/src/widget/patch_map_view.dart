@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/edit_history.dart';
 import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
 import '../api/selection_alignment.dart';
@@ -13,6 +14,7 @@ import '../api/rotation_animation.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
+import '../interaction/edit_placement.dart';
 import '../interaction/input_query.dart';
 import '../interaction/long_press_edit.dart';
 import '../interaction/selection_alignment.dart';
@@ -56,6 +58,8 @@ class PatchMapView extends StatefulWidget {
     this.longPressEditEnabled = false,
     this.editTargetResolver,
     this.onMoveResult,
+    this.editHistoryLimit = 0,
+    this.onEditHistoryChanged,
     this.gestures = const PatchMapGestureOptions(),
     this.zoomLimits = const PatchMapZoomLimits(),
     this.selectionStyle = const PatchMapSelectionStyle(),
@@ -90,6 +94,11 @@ class PatchMapView extends StatefulWidget {
 
   /// A released move's result. Success follows submission of the new position.
   final ValueChanged<PatchMapMoveResult>? onMoveResult;
+
+  /// Retained position edits per diagram. Zero disables history. Set at mount.
+  final int editHistoryLimit;
+  final ValueChanged<PatchMapEditHistoryState>? onEditHistoryChanged;
+
   final PatchMapGestureOptions gestures;
   final PatchMapZoomLimits zoomLimits;
   final PatchMapSelectionStyle selectionStyle;
@@ -125,6 +134,7 @@ class _PatchMapViewState extends State<PatchMapView>
       });
       return id;
     },
+    isCommitPending: () => session.editInFlight,
     commit: session.move,
     notify: (result) {
       if (!_disposed) session.notify(() => widget.onMoveResult?.call(result));
@@ -157,6 +167,7 @@ class _PatchMapViewState extends State<PatchMapView>
       );
     }
     MapCamera.validateZoomLimits(widget.zoomLimits);
+    RangeError.checkNotNegative(widget.editHistoryLimit, 'editHistoryLimit');
     TouchCameraGesture.validateOptions(widget.gestures);
     selection.SelectionOverlay.validateStyle(widget.selectionStyle);
     MapCamera.validateRotationAnimation(widget.rotationAnimation);
@@ -214,6 +225,9 @@ class _PatchMapViewState extends State<PatchMapView>
         widget.onPhaseChanged?.call(phase, failure);
       },
       onCallbackError: _report,
+      editHistoryLimit: widget.editHistoryLimit,
+      readEditSelection: () => input.selection.ids,
+      onEditHistoryChanged: (state) => widget.onEditHistoryChanged?.call(state),
     );
     input = InputCoordinator(
       currentGeometry: () => backend.current?.geometry,
@@ -829,6 +843,38 @@ class _PatchMapViewState extends State<PatchMapView>
       input.selection,
       session.move,
     );
+  }
+
+  @override
+  PatchMapEditHistoryState get editHistoryState => session.editHistoryState;
+
+  @override
+  Future<PatchMapMoveResult> replayEdit({required bool redo}) =>
+      session.replayEdit(
+        redo: redo,
+        canMove: (id) {
+          if (_editor.isDragging) return false;
+          final snapshot = input.currentGeometry();
+          final slot = snapshot?.topology.slots[id];
+          return slot != null && EditPlacement.capture(snapshot!, slot) != null;
+        },
+        restoreSelection: _restoreHistorySelection,
+      );
+
+  void _restoreHistorySelection(List<String> ids) {
+    final geometry = input.currentGeometry();
+    final wasDeferred = _deferInput;
+    _deferInput = true;
+    try {
+      input.selection.set(
+        ids.where((id) {
+          final node = geometry?[id];
+          return node != null && node.visible && !node.locked;
+        }),
+      );
+    } finally {
+      _deferInput = wasDeferred;
+    }
   }
 
   @override

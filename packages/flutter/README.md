@@ -377,6 +377,42 @@ in their parent coordinates. An already aligned selection returns `unchanged`.
 If the selection or a target's alignment geometry changes before publication,
 the command rejects with `MOVE_CONFLICT`. The selection and camera are retained.
 
+### Undo and redo position edits
+
+```dart
+PatchMapView(
+  controller: controller,
+  longPressEditEnabled: true,
+  editHistoryLimit: 50,
+  onEditHistoryChanged: (state) {
+    // Use state.canUndo and state.canRedo to enable the editor controls.
+  },
+);
+final restored = await controller.undo();
+```
+
+`editHistoryLimit` is a nonnegative per-attachment setting and defaults to
+zero. Each completed drag, alignment or distribution that changes positions
+adds one entry. A new entry drops the redo branch and capacity evicts the
+oldest entries. Selection-only gestures, previews, rejected edits and edits
+with unchanged positions leave history intact.
+
+`controller.editHistoryState` reports both depths, availability and whether a
+position edit or replay is in flight. `undo()` and `redo()` restore the saved
+local position axes and the still-selectable IDs from that edit. Related
+geometry updates with the same publication. Camera and other effective fields
+are retained. Success returns the restored positions after frame submission.
+An empty branch returns `unchanged`; a conflict or busy session rejects without
+advancing history. A target that became immovable can be retried after the
+restriction is lifted.
+
+An accepted replacement or widget removal clears the history. A rejected
+replacement and temporary inactivity preserve it. A successful
+`updateValues()` that changes an axis stored for the same object clears both
+branches. Ordinary monitored values, changes to independent axes, and
+keyed presentation layers preserve history. Draft persistence belongs to the
+host.
+
 ## Lifetime and callbacks
 
 The widget owns resources. Removal closes its session; the controller can then

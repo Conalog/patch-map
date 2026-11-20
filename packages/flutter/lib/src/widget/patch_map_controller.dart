@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/edit_history.dart';
 import '../api/object_geometry.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
@@ -77,6 +78,19 @@ final class PatchMapController {
       _binding?.alignSelection(alignment) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));
 
+  PatchMapEditHistoryState get editHistoryState =>
+      _binding?.editHistoryState ?? emptyEditHistoryState;
+
+  /// Restore a completed edit and return its restored positions after submission.
+  Future<PatchMapMoveResult> undo() =>
+      _binding?.replayEdit(redo: false) ??
+      Future.value(PatchMapMoveResult(_denial(), const {}));
+
+  /// Reapply the next edit and return its restored positions after submission.
+  Future<PatchMapMoveResult> redo() =>
+      _binding?.replayEdit(redo: true) ??
+      Future.value(PatchMapMoveResult(_denial(), const {}));
+
   Offset? toWorld(Offset local) => _binding?.toWorld(local);
   Offset? toLocal(Offset world) => _binding?.toLocal(world);
 
@@ -117,6 +131,8 @@ abstract class PatchMapBinding {
   List<PatchMapObject> get selected;
   PatchMapResult select(Iterable<String> ids, String mode);
   Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment);
+  PatchMapEditHistoryState get editHistoryState;
+  Future<PatchMapMoveResult> replayEdit({required bool redo});
   Offset toWorld(Offset local);
   Offset toLocal(Offset world);
 }

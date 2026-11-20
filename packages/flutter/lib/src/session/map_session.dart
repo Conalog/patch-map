@@ -1,19 +1,38 @@
 import 'dart:async';
+import 'dart:ui' show Offset;
 
+import '../api/edit_history.dart';
+import '../api/events.dart';
 import '../api/result.dart';
 import '../api/presentation.dart';
 import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/dataset_reader.dart';
 import '../frame/frame_coordinator.dart';
+import '../geometry/affine.dart' show localTranslation;
 import '../presentation/field_operations.dart';
 import '../presentation/presentation_layers.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_composer.dart';
 import '../presentation/presentation_resolver.dart';
 import '../presentation/record_delta.dart';
+import 'edit_history.dart';
 import 'request_ledger.dart';
 import 'session_backend.dart';
+
+const _moveConflict = PatchMapFailure(
+  'MOVE_CONFLICT',
+  'The active move or its position baseline changed',
+);
+
+PatchMapMoveResult _historyDenied(String code, String message) =>
+    PatchMapMoveResult(
+      PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: [PatchMapFailure(code, message)],
+      ),
+      const {},
+    );
 
 /// One widget attachment's accepted dataset, presentation and request owner.
 final class MapSession {
@@ -22,11 +41,22 @@ final class MapSession {
     required this.invalidate,
     required this.onPhase,
     required this.onCallbackError,
-  });
+    this.readEditSelection,
+    this.onEditHistoryChanged,
+    int editHistoryLimit = 0,
+  }) : _editHistory = editHistoryLimit == 0
+           ? null
+           : EditHistory(editHistoryLimit);
   final SessionBackend backend;
   final void Function() invalidate;
   final void Function(PatchMapPhase phase, PatchMapFailure? failure) onPhase;
   final void Function(Object error, StackTrace stack) onCallbackError;
+  final Iterable<String> Function()? readEditSelection;
+  final void Function(PatchMapEditHistoryState)? onEditHistoryChanged;
+  final EditHistory? _editHistory;
+  _Pending? _historyEditInFlight;
+  PatchMapEditHistoryState _notifiedHistory = emptyEditHistoryState;
+  bool _historyNotificationQueued = false;
   final _reader = const DatasetReader();
   final _admission = const PresentationAdmission();
   final _resolver = const PresentationResolver();
@@ -55,6 +85,13 @@ final class MapSession {
   bool get active => _active && !_closed;
   int get generation => _generation;
   bool get commandsAllowed => !_closed && !_inFilter;
+  bool get editInFlight => _historyEditInFlight != null;
+  PatchMapEditHistoryState get editHistoryState =>
+      _editHistory?.state(
+        active: active && _phase == PatchMapPhase.ready,
+        busy: editInFlight,
+      ) ??
+      emptyEditHistoryState;
   Map<String, Object?>? current(PatchMapTarget target) {
     final value = _values[target];
     if (value != null) return value;
@@ -131,6 +168,7 @@ final class MapSession {
     }
     _interrupt(PatchMapInterruption.replaced);
     _generation++;
+    _resetEditHistory();
     _revision = 0;
     _submittedRevision = -1;
     _document = candidate;
@@ -219,11 +257,66 @@ final class MapSession {
     List<PatchMapUpdate> updates,
     bool Function() canPublish,
     void Function() didPublish,
-  ) {
+  ) => _queueMove(updates, canPublish, didPublish, record: true);
+
+  Future<PatchMapMoveResult> replayEdit({
+    required bool redo,
+    required bool Function(String id) canMove,
+    required void Function(List<String> ids) restoreSelection,
+  }) async {
+    if (!commandsAllowed || !active || _phase != PatchMapPhase.ready) {
+      return _historyDenied('NOT_READY', 'An active, ready map is required');
+    }
+    if (editInFlight) {
+      return _historyDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
+    final history = _editHistory;
+    final entry = history?.at(redo: redo);
+    if (history == null || entry == null) {
+      return PatchMapMoveResult(
+        PatchMapResult(PatchMapOutcome.unchanged),
+        const {},
+      );
+    }
+
+    final generation = _generation, suspension = _suspension;
+    bool canPublish() =>
+        _generation == generation &&
+        _suspension == suspension &&
+        identical(history.at(redo: redo), entry) &&
+        entry.matches(redo, current, canMove);
+    if (!canPublish()) {
+      return _historyDenied(_moveConflict.code, _moveConflict.message);
+    }
+
+    Map<String, Offset> positions = const {};
+    final result = await _queueMove(entry.updates(redo: redo), canPublish, () {
+      history.advance(redo: redo);
+      positions = {
+        for (final id in entry.ids)
+          id: localTranslation(current(PatchMapTarget(id))!),
+      };
+      restoreSelection(entry.selection);
+    }, record: false);
+    return PatchMapMoveResult(
+      result,
+      result.outcome == PatchMapOutcome.applied && !result.superseded
+          ? positions
+          : const {},
+    );
+  }
+
+  Future<PatchMapResult> _queueMove(
+    List<PatchMapUpdate> updates,
+    bool Function() canPublish,
+    void Function() didPublish, {
+    required bool record,
+  }) {
     if (!commandsAllowed ||
         !active ||
         _phase != PatchMapPhase.ready ||
-        _pendingMove != null) {
+        _pendingMove != null ||
+        editInFlight) {
       return Future.value(_rejected(StateError('map is not ready to move')));
     }
     final PresentationBatch batch;
@@ -233,11 +326,44 @@ final class MapSession {
       return Future.value(_rejected(error));
     }
     final pending = _pendingMove = _Pending()
-      ..move = _MovePublication(_pending, canPublish, didPublish);
+      ..move = _MovePublication(_pending, canPublish, didPublish, record);
     final result = pending.ledger.add(batch);
     _composePending(pending, batch);
     _schedule();
-    return result;
+    if (_editHistory == null) return result;
+    _historyEditInFlight = pending;
+    _notifyEditHistory();
+    return result.whenComplete(() {
+      if (!identical(_historyEditInFlight, pending)) return;
+      _historyEditInFlight = null;
+      _notifyEditHistory();
+    });
+  }
+
+  void _resetEditHistory() {
+    _editHistory?.clear();
+    _historyEditInFlight = null;
+    _notifyEditHistory();
+  }
+
+  void _notifyEditHistory() {
+    final callback = onEditHistoryChanged;
+    if (callback == null ||
+        _editHistory == null ||
+        _closed ||
+        _historyNotificationQueued ||
+        editHistoryState == _notifiedHistory) {
+      return;
+    }
+    _historyNotificationQueued = true;
+    scheduleMicrotask(() {
+      _historyNotificationQueued = false;
+      if (_closed) return;
+      final state = editHistoryState;
+      if (state == _notifiedHistory) return;
+      _notifiedHistory = state;
+      notify(() => callback(state));
+    });
   }
 
   /// Caller callback mutations are admitted immediately, processed on exit.
@@ -297,6 +423,7 @@ final class MapSession {
       _schedule();
       if (_submission != null) invalidate();
     }
+    _notifyEditHistory();
   }
 
   void didSubmit(PaintSubmission stamp) {
@@ -324,6 +451,7 @@ final class MapSession {
       _phase = PatchMapPhase.ready;
       notify(() => onPhase(PatchMapPhase.ready, null));
     }
+    _notifyEditHistory();
     _schedule();
   }
 
@@ -332,6 +460,7 @@ final class MapSession {
     if (_closed || _phase == PatchMapPhase.failed) return;
     final failure = _failure(error);
     _phase = PatchMapPhase.failed;
+    _resetEditHistory();
     _work = null;
     _wakeActivity();
     _replacement = false;
@@ -550,13 +679,9 @@ final class MapSession {
         _pending = null;
       }
       final move = pending?.move;
-      const moveConflict = PatchMapFailure(
-        'MOVE_CONFLICT',
-        'The active move or its position baseline changed',
-      );
       while (valid()) {
         if (move != null && !move.canPublish()) {
-          pending!.ledger.reject(const [moveConflict]);
+          pending!.ledger.reject(const [_moveConflict]);
           _executing = null;
           return;
         }
@@ -602,7 +727,7 @@ final class MapSession {
               failures.isNotEmpty) {
             pending!.ledger.reject(
               failures.isEmpty
-                  ? const [moveConflict]
+                  ? const [_moveConflict]
                   : failures.values.expand((value) => value),
             );
             _executing = null;
@@ -635,6 +760,7 @@ final class MapSession {
         _publication = candidate;
         candidate = null; // Transfer this owned reference to the live session.
         if (previous != null) backend.retire(previous);
+        final history = _editHistory;
         for (final entry in changes.entries) {
           if (failures.containsKey(entry.key.id)) {
             _failedTargets.add(entry.key.id);
@@ -661,7 +787,18 @@ final class MapSession {
         pending?.ledger.recordFailures(failures);
         if (move != null) {
           pending!.move = null;
+          if (move.record && history != null) {
+            history.record(changes, readEditSelection);
+          }
           move.didPublish();
+        } else if (history != null &&
+            !history.isEmpty &&
+            changes.entries.any(
+              (entry) =>
+                  !failures.containsKey(entry.key.id) &&
+                  history.conflicts(entry.key, entry.value),
+            )) {
+          history.clear();
         }
         if (_replacementResult != null) _replacementFailures.addAll(failures);
         invalidate();
@@ -764,6 +901,7 @@ final class MapSession {
   void close() {
     if (_closed) return;
     _closed = true;
+    _resetEditHistory();
     _work = null;
     _wakeActivity();
     _interrupt(PatchMapInterruption.detached);
@@ -788,10 +926,16 @@ class _Pending {
 }
 
 class _MovePublication {
-  const _MovePublication(this.after, this.canPublish, this.didPublish);
+  const _MovePublication(
+    this.after,
+    this.canPublish,
+    this.didPublish,
+    this.record,
+  );
   final _Pending? after;
   final bool Function() canPublish;
   final void Function() didPublish;
+  final bool record;
 }
 
 class _Submission {

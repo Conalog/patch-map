@@ -2,6 +2,14 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
+Offset localTranslation(Map<String, Object?> data) {
+  final attrs = data['attrs'] as Map?;
+  return Offset(
+    (attrs?['x'] as num?)?.toDouble() ?? 0,
+    (attrs?['y'] as num?)?.toDouble() ?? 0,
+  );
+}
+
 /// Shared exact 2D transform. Composition preserves nested nonuniform scale,
 /// reflection and rotation instead of reconstructing them from a world angle.
 final class Affine {

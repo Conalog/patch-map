@@ -6,7 +6,6 @@ import '../api/target.dart';
 import '../api/update.dart';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
-import '../geometry/scene_geometry.dart';
 
 typedef CommitMove =
     Future<PatchMapResult> Function(
@@ -72,7 +71,7 @@ final class EditPlacement {
             target.world,
             parent,
             inverse,
-            _localPosition(target),
+            localTranslation(target.data),
           );
   }
 
@@ -83,7 +82,7 @@ final class EditPlacement {
     final target = snapshot.nodes[slot];
     return target.world.sameTransform(_world) &&
         _parentWorld(snapshot, slot).sameTransform(_parent) &&
-        _localPosition(target) == local &&
+        localTranslation(target.data) == local &&
         _movable(snapshot, slot);
   }
 
@@ -111,12 +110,4 @@ bool _movable(GeometrySnapshot snapshot, int slot) {
 Affine _parentWorld(GeometrySnapshot snapshot, int slot) {
   final parent = snapshot.topology.parents[slot];
   return parent == null ? Affine.identity : snapshot.nodes[parent].world;
-}
-
-Offset _localPosition(TargetGeometry node) {
-  final attrs = node.data['attrs'] as Map?;
-  return Offset(
-    (attrs?['x'] as num?)?.toDouble() ?? 0,
-    (attrs?['y'] as num?)?.toDouble() ?? 0,
-  );
 }

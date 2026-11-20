@@ -13,6 +13,8 @@ Widget _host(
   required List<PatchMapFailure> failures,
   ValueChanged<PatchMapCameraChange>? cameraChanged,
   ValueChanged<PatchMapMoveResult>? moveResult,
+  int editHistoryLimit = 0,
+  ValueChanged<PatchMapEditHistoryState>? historyChanged,
   bool active = true,
   PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => MediaQuery(
@@ -44,6 +46,8 @@ Widget _host(
           onCameraChanged: cameraChanged,
           longPressEditEnabled: moveResult != null,
           onMoveResult: moveResult,
+          editHistoryLimit: editHistoryLimit,
+          onEditHistoryChanged: historyChanged,
         ),
       ),
     ),
@@ -83,9 +87,20 @@ Future<PatchMapResult> _submitted(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  testWidgets('installed consumer aligns selected objects', (tester) async {
+  testWidgets('installed consumer aligns, undoes and redoes edits', (
+    tester,
+  ) async {
     final controller = PatchMapController();
-    await tester.pumpWidget(_host(controller, phases: [], failures: []));
+    final history = <PatchMapEditHistoryState>[];
+    await tester.pumpWidget(
+      _host(
+        controller,
+        phases: [],
+        failures: [],
+        editHistoryLimit: 50,
+        historyChanged: history.add,
+      ),
+    );
     final drawn = await _submitted(
       tester,
       controller.draw([
@@ -107,6 +122,16 @@ void main() {
     expect(moved.positions, {'a': const Offset(50, 0)});
     expect(controller.getGeometry('a')!.bounds!.right, 70);
     expect(controller.getGeometry('b')!.origin, const Offset(60, 40));
+    expect(history.last.canUndo, isTrue);
+    final undo = controller.undo();
+    await _progress(tester);
+    expect((await undo).positions, {'a': Offset.zero});
+    expect(controller.getGeometry('a')!.origin, Offset.zero);
+    expect(controller.editHistoryState.canRedo, isTrue);
+    final redo = controller.redo();
+    await _progress(tester);
+    expect((await redo).positions, moved.positions);
+    expect(controller.getGeometry('a')!.bounds!.right, 70);
   });
 
   testWidgets('installed consumer opts into a submitted long-press move', (
