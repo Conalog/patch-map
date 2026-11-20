@@ -7,6 +7,7 @@ import '../api/result.dart';
 import '../api/camera.dart';
 import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
+import '../api/selection_alignment.dart';
 import '../api/selection_style.dart';
 import '../api/rotation_animation.dart';
 import '../api/presentation.dart';
@@ -14,6 +15,7 @@ import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
 import '../interaction/input_query.dart';
 import '../interaction/long_press_edit.dart';
+import '../interaction/selection_alignment.dart';
 import '../interaction/selection_state.dart';
 import '../interaction/touch_camera_gesture.dart';
 import '../api/target.dart';
@@ -796,6 +798,36 @@ class _PatchMapViewState extends State<PatchMapView>
             target: PatchMapTarget(id),
           ),
       ],
+    );
+  }
+
+  @override
+  Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment) {
+    final geometry = backend.current?.geometry;
+    if (!session.commandsAllowed ||
+        !session.active ||
+        phase != PatchMapPhase.ready ||
+        geometry == null) {
+      return Future.value(
+        PatchMapMoveResult(
+          PatchMapResult(
+            PatchMapOutcome.rejected,
+            failures: const [
+              PatchMapFailure(
+                'NOT_READY',
+                'An active submitted diagram outside a filter is required',
+              ),
+            ],
+          ),
+          const {},
+        ),
+      );
+    }
+    return alignSelectedObjects(
+      alignment,
+      geometry,
+      input.selection,
+      session.move,
     );
   }
 

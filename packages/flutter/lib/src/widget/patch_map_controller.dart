@@ -8,6 +8,7 @@ import '../api/camera.dart';
 import '../api/object_geometry.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
+import '../api/selection_alignment.dart';
 import '../api/target.dart';
 import '../api/update.dart';
 
@@ -69,6 +70,13 @@ final class PatchMapController {
   PatchMapResult toggleSelection(Iterable<String> ids) =>
       _binding?.select(ids, 'toggle') ?? _denial();
   PatchMapResult clearSelection() => select(const []);
+
+  /// Align the current selection in world coordinates. Applied positions are
+  /// returned after the map submits the change.
+  Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment) =>
+      _binding?.alignSelection(alignment) ??
+      Future.value(PatchMapMoveResult(_denial(), const {}));
+
   Offset? toWorld(Offset local) => _binding?.toWorld(local);
   Offset? toLocal(Offset world) => _binding?.toLocal(world);
 
@@ -108,6 +116,7 @@ abstract class PatchMapBinding {
   PatchMapResult rotateTo(double rotation);
   List<PatchMapObject> get selected;
   PatchMapResult select(Iterable<String> ids, String mode);
+  Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment);
   Offset toWorld(Offset local);
   Offset toLocal(Offset world);
 }

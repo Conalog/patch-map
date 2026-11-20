@@ -349,6 +349,27 @@ in each target's parent coordinates. A rejected move supplies failures without
 partially translating the selection. The app owns persistence. Moving objects
 does not alter their authored input, and a later `draw` uses its supplied data.
 
+### Align the selection
+
+```dart
+final move = await controller.alignSelection(PatchMapAlignment.left);
+```
+
+Choose `left`, `right`, `top`, `bottom`, `centerX`, or `centerY`. The command
+uses world-axis bounds. Edges align to the outermost selected edge on the
+chosen side. Centers align to the average of the selected centers on that axis.
+Grid bounds include every authored cell slot. Items, rectangles, grids and
+fixed-size text and images are eligible. The command rejects selections with
+fewer than two independent targets, unsupported geometry, hidden or locked
+targets, or a grid with a locked descendant.
+
+Call the command on an active, ready map. The command is available independently
+of long-press editing. It applies the positions atomically and returns a
+`PatchMapMoveResult` after submission. `positions` includes only moved targets,
+in their parent coordinates. An already aligned selection returns `unchanged`.
+If the selection or a target's alignment geometry changes before publication,
+the command rejects with `MOVE_CONFLICT`. The selection and camera are retained.
+
 ## Lifetime and callbacks
 
 The widget owns resources. Removal closes its session; the controller can then

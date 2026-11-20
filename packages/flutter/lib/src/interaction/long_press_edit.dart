@@ -3,25 +3,17 @@ import 'dart:ui';
 
 import '../api/camera.dart';
 import '../api/events.dart';
-import '../api/result.dart';
-import '../api/target.dart';
-import '../api/update.dart';
 import '../dataset/colors.dart';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../geometry/scene_geometry.dart';
 import '../geometry/selection_geometry.dart';
 import '../viewport/camera.dart';
+import 'edit_placement.dart';
 import 'input_query.dart';
 import 'selection_state.dart';
 
 typedef EditTargetResolver = String? Function(PatchMapObject hit);
-typedef CommitMove =
-    Future<PatchMapResult> Function(
-      List<PatchMapUpdate> updates,
-      bool Function() canPublish,
-      void Function() didPublish,
-    );
 
 /// Transient edit input. Selection and committed geometry still belong to the
 /// existing selection and session owners.
@@ -76,25 +68,18 @@ final class LongPressEdit {
     final onSelection = hit == null
         ? _selectionContains(snapshot, initial, world)
         : initial.contains(hit);
-    final ids = onSelection ? _roots(snapshot, initial) : [?hit];
-    final targets = <String, _Placement>{};
+    final ids = onSelection ? editRoots(snapshot, initial) : [?hit];
+    final targets = <String, EditPlacement>{};
     Rect? bounds;
     for (final id in ids) {
       final slot = snapshot.topology.slots[id]!;
-      final target = snapshot.nodes[slot];
-      final parent = _parentWorld(snapshot, slot);
-      final inverse = parent.inverse;
+      final placement = EditPlacement.capture(snapshot, slot);
       final envelope = snapshot.boundsFor(id, paint: false);
-      if (!_movable(snapshot, slot) || inverse == null || envelope == null) {
+      if (placement == null || envelope == null) {
         // An immovable selected root must not turn this into a range drag.
         return true;
       }
-      targets[id] = _Placement(
-        target.world,
-        parent,
-        inverse,
-        _localPosition(target),
-      );
+      targets[id] = placement;
       bounds = unionBounds(bounds, envelope);
     }
     final drag = _EditDrag(
@@ -151,7 +136,7 @@ final class LongPressEdit {
           camera.localToWorld(box.bottomLeft),
         );
         selection.set(
-          _roots(snapshot, [
+          editRoots(snapshot, [
             for (final hit in query.range(snapshot, range, camera.rotation))
               ?_resolve(snapshot, hit),
           ]),
@@ -175,13 +160,9 @@ final class LongPressEdit {
 
   Future<void> _apply(_EditDrag drag, Map<String, Offset> positions) async {
     try {
-      final result = await commit(
-        [
-          for (final entry in positions.entries)
-            PatchMapUpdate(PatchMapTarget(entry.key), {
-              'attrs': {'x': entry.value.dx, 'y': entry.value.dy},
-            }),
-        ],
+      final result = await commitPositions(
+        commit,
+        positions,
         () => !drag.cancelled && _stillCurrent(drag),
         () {
           drag.published = true;
@@ -193,14 +174,7 @@ final class LongPressEdit {
         },
       );
       if (!_disposed && !drag.cancelled) {
-        notify(
-          PatchMapMoveResult(
-            result,
-            result.outcome == PatchMapOutcome.applied && !result.superseded
-                ? positions
-                : const {},
-          ),
-        );
+        notify(result);
       }
     } catch (error, stack) {
       if (!_disposed && !drag.cancelled) reportError(error, stack);
@@ -222,14 +196,7 @@ final class LongPressEdit {
     }
     for (final entry in drag.targets.entries) {
       final slot = snapshot.topology.slots[entry.key]!;
-      final before = entry.value;
-      final target = snapshot.nodes[slot];
-      if (!_movable(snapshot, slot) ||
-          !target.world.sameTransform(before.world) ||
-          !_parentWorld(snapshot, slot).sameTransform(before.parent) ||
-          _localPosition(target) != before.local) {
-        return false;
-      }
+      if (!entry.value.matches(snapshot, slot)) return false;
     }
     return true;
   }
@@ -322,64 +289,6 @@ final class LongPressEdit {
   }
 }
 
-List<String> _roots(GeometrySnapshot snapshot, Iterable<String> ids) {
-  final selected = ids.toSet(), topology = snapshot.topology;
-  return [
-    for (final id in selected)
-      if (!_hasSelectedAncestor(topology, topology.slots[id]!, selected)) id,
-  ];
-}
-
-bool _hasSelectedAncestor(
-  GeometryTopology topology,
-  int slot,
-  Set<String> selected,
-) {
-  for (var p = topology.parents[slot]; p != null; p = topology.parents[p]) {
-    if (selected.contains(topology.ids[p])) return true;
-  }
-  return false;
-}
-
-bool _movable(GeometrySnapshot snapshot, int slot) {
-  final node = snapshot.nodes[slot];
-  if (!node.visible ||
-      node.target.row != null ||
-      node.target.type == 'relations') {
-    return false;
-  }
-  for (var i = slot; i < snapshot.topology.ends[slot]; i++) {
-    if (snapshot.nodes[i].locked) return false;
-  }
-  return true;
-}
-
-Affine _parentWorld(GeometrySnapshot snapshot, int slot) {
-  final parent = snapshot.topology.parents[slot];
-  return parent == null ? Affine.identity : snapshot.nodes[parent].world;
-}
-
-Offset _localPosition(TargetGeometry node) {
-  final attrs = node.data['attrs'] as Map?;
-  return Offset(
-    (attrs?['x'] as num?)?.toDouble() ?? 0,
-    (attrs?['y'] as num?)?.toDouble() ?? 0,
-  );
-}
-
-final class _Placement {
-  const _Placement(this.world, this.parent, this.inverse, this.local);
-  final Affine world, parent, inverse;
-  final Offset local;
-
-  Offset translate(Offset delta) =>
-      local +
-      Offset(
-        inverse.a * delta.dx + inverse.c * delta.dy,
-        inverse.b * delta.dx + inverse.d * delta.dy,
-      );
-}
-
 final class _EditDrag {
   _EditDrag(
     this.start,
@@ -394,7 +303,7 @@ final class _EditDrag {
   final PatchMapCameraState camera;
   final GeometryTopology topology;
   final List<String> selectionBefore;
-  final Map<String, _Placement> targets;
+  final Map<String, EditPlacement> targets;
   final Rect? bounds;
   Offset end;
   int? selectionRevision;

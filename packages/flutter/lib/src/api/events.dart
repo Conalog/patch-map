@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'result.dart';
 
-/// Result of a long-press move. Successful positions are in each object's
+/// Result of a move or alignment. Successful positions are in each object's
 /// parent coordinate system, as stored in its effective `attrs.x` and `attrs.y`.
 final class PatchMapMoveResult {
   PatchMapMoveResult(this.result, Map<String, Offset> positions)

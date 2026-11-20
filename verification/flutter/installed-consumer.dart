@@ -83,6 +83,32 @@ Future<PatchMapResult> _submitted(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('installed consumer aligns selected objects', (tester) async {
+    final controller = PatchMapController();
+    await tester.pumpWidget(_host(controller, phases: [], failures: []));
+    final drawn = await _submitted(
+      tester,
+      controller.draw([
+        {'type': 'rect', 'id': 'a', 'size': 20},
+        {
+          'type': 'rect',
+          'id': 'b',
+          'size': 10,
+          'attrs': {'x': 60, 'y': 40},
+        },
+      ]),
+    );
+    expect(drawn.outcome, PatchMapOutcome.applied);
+    expect(controller.select(['a', 'b']).outcome, PatchMapOutcome.applied);
+    final alignment = controller.alignSelection(PatchMapAlignment.right);
+    await _progress(tester);
+    final moved = await alignment;
+    expect(moved.result.outcome, PatchMapOutcome.applied);
+    expect(moved.positions, {'a': const Offset(50, 0)});
+    expect(controller.getGeometry('a')!.bounds!.right, 70);
+    expect(controller.getGeometry('b')!.origin, const Offset(60, 40));
+  });
+
   testWidgets('installed consumer opts into a submitted long-press move', (
     tester,
   ) async {
