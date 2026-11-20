@@ -22,7 +22,8 @@ final class SceneGeometry {
     DatasetDocument document,
     MeasureText measureText, {
     MeasureImage? measureImage,
-  }) => _Builder(document, measureText, measureImage).build();
+    TargetGeometry? Function(String id)? retained,
+  }) => _Builder(document, measureText, measureImage, retained).build();
 }
 
 final class TargetGeometry {
@@ -236,10 +237,11 @@ TargetGeometry projectTargetGeometry({
 }
 
 class _Builder {
-  _Builder(this.document, this.measureText, this.measureImage);
+  _Builder(this.document, this.measureText, this.measureImage, this.retained);
   final DatasetDocument document;
   final MeasureText measureText;
   final MeasureImage? measureImage;
+  final TargetGeometry? Function(String id)? retained;
   final _items = HashMap<Map<String, Object?>, ItemLayout>.identity();
   final _targets = <String, TargetGeometry>{};
   final _ordered = <TargetGeometry>[];
@@ -271,23 +273,25 @@ class _Builder {
         }
       }
     }
-    final result = projectTargetGeometry(
-      target: target,
-      data: data,
-      measureText: measureText,
-      measureImage: measureImage,
-      parentWorld: parent?.world ?? Affine.identity,
-      parentVisible: parent?.visible ?? true,
-      parentLocked: parent?.locked ?? false,
-      parentOpacity: parent?.opacity ?? 1,
-      gridData: parent?.data,
-      item: target.type == 'item'
-          ? _items.putIfAbsent(
-              data,
-              () => ItemLayout.compile(data, measureText),
-            )
-          : null,
-    );
+    final result =
+        retained?.call(target.id) ??
+        projectTargetGeometry(
+          target: target,
+          data: data,
+          measureText: measureText,
+          measureImage: measureImage,
+          parentWorld: parent?.world ?? Affine.identity,
+          parentVisible: parent?.visible ?? true,
+          parentLocked: parent?.locked ?? false,
+          parentOpacity: parent?.opacity ?? 1,
+          gridData: parent?.data,
+          item: target.type == 'item'
+              ? _items.putIfAbsent(
+                  data,
+                  () => ItemLayout.compile(data, measureText),
+                )
+              : null,
+        );
     for (final id in childIds) {
       _element(document.targets[id]!, result);
     }

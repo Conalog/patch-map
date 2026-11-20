@@ -29,11 +29,13 @@ final class GeometrySnapshot {
     DatasetDocument document,
     MeasureText measure, {
     MeasureImage? measureImage,
+    GeometrySnapshot? previous,
   }) {
     final initial = SceneGeometry.compile(
       document,
       measure,
       measureImage: measureImage,
+      retained: previous == null ? null : (id) => previous[id],
     );
     final topology = GeometryTopology(document);
     final baseNodes = PagedValues<TargetGeometry>.fromList([
@@ -80,9 +82,11 @@ final class GeometrySnapshot {
     return GeometrySnapshot._(
       topology,
       nodes,
-      List.unmodifiable(
-        initial.paintOrder.map((node) => topology.slots[node.id]!),
-      ),
+      previous == null
+          ? List.unmodifiable(
+              initial.paintOrder.map((node) => topology.slots[node.id]!),
+            )
+          : topology.paintOrder(nodes),
       relations.isEmpty ? endpoints : _pageBounds(nodes, paint: false),
       paintBounds,
       endpoints,
@@ -668,8 +672,8 @@ final class GeometryChange {
   final Map<int, int> fields;
 }
 
-/// Structural topology is fixed until replacement. Slots are stable preorder
-/// identities, independent of visual sibling z-order.
+/// Slots are preorder identities, independent of visual sibling z-order.
+/// Appending and removing trailing roots preserves surviving slots.
 final class GeometryTopology {
   GeometryTopology(DatasetDocument document) {
     void add(String id, int? parent) {

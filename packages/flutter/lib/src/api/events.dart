@@ -2,7 +2,8 @@ import 'dart:ui';
 
 import 'result.dart';
 
-/// Result of a move, alignment or replay. A selection replay has no positions.
+/// Result of a move, alignment or replay. Selection and addition replays have
+/// no positions.
 /// Successful positions are in each object's
 /// parent coordinate system, as stored in its effective `attrs.x` and `attrs.y`.
 final class PatchMapMoveResult {

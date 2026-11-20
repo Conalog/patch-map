@@ -24,15 +24,17 @@ const _moveConflict = PatchMapFailure(
   'MOVE_CONFLICT',
   'The active move or its position baseline changed',
 );
+const _structureConflict = PatchMapFailure(
+  'EDIT_CONFLICT',
+  'The map or structural edit changed before publication',
+);
 
+PatchMapResult _editDenied(String code, String message) => PatchMapResult(
+  PatchMapOutcome.rejected,
+  failures: [PatchMapFailure(code, message)],
+);
 PatchMapMoveResult _historyDenied(String code, String message) =>
-    PatchMapMoveResult(
-      PatchMapResult(
-        PatchMapOutcome.rejected,
-        failures: [PatchMapFailure(code, message)],
-      ),
-      const {},
-    );
+    PatchMapMoveResult(_editDenied(code, message), const {});
 
 /// One widget attachment's accepted dataset, presentation and request owner.
 final class MapSession {
@@ -54,7 +56,7 @@ final class MapSession {
   final Iterable<String> Function()? readEditSelection;
   final void Function(PatchMapEditHistoryState)? onEditHistoryChanged;
   final EditHistory? _editHistory;
-  _Pending? _historyEditInFlight;
+  _Pending? _editInFlight;
   PatchMapEditHistoryState _notifiedHistory = emptyEditHistoryState;
   bool _historyNotificationQueued = false;
   final _reader = const DatasetReader();
@@ -75,7 +77,7 @@ final class MapSession {
   Object? _work;
   bool _refresh = false;
   _Pending? _pending, _executing;
-  _Pending? _pendingMove;
+  _Pending? _pendingEdit;
   _Submission? _submission;
   Completer<PatchMapResult>? _replacementResult;
   final _replacementFailures = <String, List<PatchMapFailure>>{};
@@ -85,7 +87,7 @@ final class MapSession {
   bool get active => _active && !_closed;
   int get generation => _generation;
   bool get commandsAllowed => !_closed && !_inFilter;
-  bool get editInFlight => _historyEditInFlight != null;
+  bool get editInFlight => _editInFlight != null;
   bool get hasEditHistory => _editHistory != null;
   PatchMapEditHistoryState get editHistoryState =>
       _editHistory?.state(
@@ -192,6 +194,16 @@ final class MapSession {
     final PresentationBatch batch;
     try {
       batch = _admission.admit(_document!, updates, current: _latestRecord);
+      final edit = _editInFlight?.edit;
+      if (edit is _StructurePublication &&
+          edit.removed != null &&
+          batch.patches.any(
+            (patch) => edit.removed!.contains(patch.target.id),
+          )) {
+        return Future.value(
+          _editDenied('EDIT_BUSY', 'A target is being removed'),
+        );
+      }
       final contextReady =
           active &&
           _phase == PatchMapPhase.ready &&
@@ -260,6 +272,45 @@ final class MapSession {
     void Function() didPublish,
   ) => _queueMove(updates, canPublish, didPublish, record: true);
 
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    required bool selectAdded,
+    required void Function(List<String>) restoreSelection,
+    required bool gestureInProgress,
+  }) async {
+    final denial = _editDenial(gestureInProgress: gestureInProgress);
+    if (denial != null) return denial;
+    final DatasetDocument added, candidate;
+    try {
+      final document = _document!;
+      added = _reader.read(objects, rootOffset: document.roots.length);
+      if (added.roots.isEmpty) return PatchMapResult(PatchMapOutcome.unchanged);
+      candidate = document.append(added);
+      backend.validateDocument(added);
+    } catch (error) {
+      if (!_expected(error)) rethrow;
+      return _rejected(error);
+    }
+    return _queueStructure(
+      candidate,
+      removed: null,
+      canPublish: () => true,
+      didPublish: () {
+        final before = readEditSelection?.call().toList() ?? const <String>[];
+        if (selectAdded) {
+          restoreSelection([
+            for (final root in added.roots) root['id']! as String,
+          ]);
+        }
+        _editHistory?.recordAddition(
+          added,
+          before,
+          readEditSelection?.call().toList() ?? const <String>[],
+        );
+      },
+    );
+  }
+
   bool recordSelection(Iterable<String> before, Iterable<String> after) {
     final history = _editHistory;
     if (history == null ||
@@ -309,6 +360,27 @@ final class MapSession {
     }
 
     final selection = entry.selection(redo: redo);
+    final added = entry.added;
+    if (added != null) {
+      final DatasetDocument document;
+      try {
+        document = redo
+            ? _document!.append(added)
+            : _document!.removeAppended(added);
+      } on DatasetException catch (error) {
+        return PatchMapMoveResult(_rejected(error), const {});
+      }
+      final result = await _queueStructure(
+        document,
+        removed: redo ? null : added.targets.keys.toSet(),
+        canPublish: canPublish,
+        didPublish: () {
+          history.advance(redo: redo);
+          restoreSelection(selection);
+        },
+      );
+      return PatchMapMoveResult(result, const {});
+    }
     if (!entry.hasPositions) {
       history.advance(redo: redo);
       restoreSelection(selection);
@@ -342,37 +414,60 @@ final class MapSession {
     void Function() didPublish, {
     required bool record,
   }) {
-    if (!commandsAllowed ||
-        !active ||
-        _phase != PatchMapPhase.ready ||
-        _pendingMove != null ||
-        editInFlight) {
-      return Future.value(_rejected(StateError('map is not ready to move')));
-    }
+    final denial = _editDenial();
+    if (denial != null) return Future.value(denial);
     final PresentationBatch batch;
     try {
       batch = _admission.admit(_document!, updates, current: current);
     } on DatasetException catch (error) {
       return Future.value(_rejected(error));
     }
-    final pending = _pendingMove = _Pending()
-      ..move = _MovePublication(_pending, canPublish, didPublish, record);
+    return _enqueueEdit(
+      _MovePublication(_pending, canPublish, didPublish, record),
+      batch,
+    );
+  }
+
+  Future<PatchMapResult> _queueStructure(
+    DatasetDocument document, {
+    required Set<String>? removed,
+    required bool Function() canPublish,
+    required void Function() didPublish,
+  }) => _enqueueEdit(
+    _StructurePublication(_pending, canPublish, didPublish, document, removed),
+    PresentationBatch(const [], const []),
+  );
+
+  Future<PatchMapResult> _enqueueEdit(
+    _EditPublication edit,
+    PresentationBatch batch,
+  ) {
+    final pending = _pendingEdit = _Pending()..edit = edit;
     final result = pending.ledger.add(batch);
-    _composePending(pending, batch);
+    if (batch.patches.isNotEmpty) _composePending(pending, batch);
     _schedule();
-    if (_editHistory == null) return result;
-    _historyEditInFlight = pending;
+    _editInFlight = pending;
     _notifyEditHistory();
     return result.whenComplete(() {
-      if (!identical(_historyEditInFlight, pending)) return;
-      _historyEditInFlight = null;
+      if (!identical(_editInFlight, pending)) return;
+      _editInFlight = null;
       _notifyEditHistory();
     });
   }
 
+  PatchMapResult? _editDenial({bool gestureInProgress = false}) {
+    if (!commandsAllowed || !active || _phase != PatchMapPhase.ready) {
+      return _editDenied('NOT_READY', 'An active, ready map is required');
+    }
+    if (gestureInProgress || editInFlight) {
+      return _editDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
+    return null;
+  }
+
   void _resetEditHistory() {
     _editHistory?.clear();
-    _historyEditInFlight = null;
+    _editInFlight = null;
     _notifyEditHistory();
   }
 
@@ -499,14 +594,14 @@ final class MapSession {
     } else {
       final trace = stack ?? StackTrace.current;
       _pending?.ledger.failUnexpected(error, trace);
-      _pendingMove?.ledger.failUnexpected(error, trace);
+      _pendingEdit?.ledger.failUnexpected(error, trace);
       _executing?.ledger.failUnexpected(error, trace);
       final replacement = _replacementResult;
       if (replacement != null && !replacement.isCompleted) {
         replacement.completeError(error, trace);
       }
       _pending = null;
-      _pendingMove = null;
+      _pendingEdit = null;
       _executing = null;
       _submission = null;
       _replacementResult = null;
@@ -526,7 +621,7 @@ final class MapSession {
     if (result == null) return null;
     // A published executing plan is already represented by _values. Replaying
     // it would resurrect fields of an item whose preparation failed.
-    final executing = _submission == null && _executing?.move == null
+    final executing = _submission == null && _executing?.edit == null
         ? _executing?.index[target]
         : null;
     final pending = _pending?.index[target];
@@ -644,7 +739,7 @@ final class MapSession {
       _work == null &&
       _submission == null &&
       _phase != PatchMapPhase.failed &&
-      (_replacement || _pending != null || _pendingMove != null || _refresh);
+      (_replacement || _pending != null || _pendingEdit != null || _refresh);
 
   void _schedule() {
     if (_queued || !_canDrain) return;
@@ -696,22 +791,24 @@ final class MapSession {
       }
       // First-screen input is cut at presentation processing, after document
       // preparation. Later active requests cannot postpone first readiness.
-      final queuedMove = _pendingMove;
-      final takeMove =
+      final queuedEdit = _pendingEdit;
+      final takeEdit =
           !initial &&
           !refresh &&
-          queuedMove != null &&
-          (_pending == null || !identical(queuedMove.move!.after, _pending));
-      var pending = _executing = takeMove ? queuedMove : _pending;
-      if (takeMove) {
-        _pendingMove = null;
+          queuedEdit != null &&
+          (_pending == null || !identical(queuedEdit.edit!.after, _pending));
+      var pending = _executing = takeEdit ? queuedEdit : _pending;
+      if (takeEdit) {
+        _pendingEdit = null;
       } else {
         _pending = null;
       }
-      final move = pending?.move;
+      final edit = pending?.edit;
+      final structure = edit is _StructurePublication ? edit : null;
+      final conflict = structure == null ? _moveConflict : _structureConflict;
       while (valid()) {
-        if (move != null && !move.canPublish()) {
-          pending!.ledger.reject(const [_moveConflict]);
+        if (edit != null && !edit.canPublish()) {
+          pending!.ledger.reject([conflict]);
           _executing = null;
           return;
         }
@@ -722,23 +819,30 @@ final class MapSession {
         var failures = pending == null
             ? const <String, List<PatchMapFailure>>{}
             : _revalidateAfterFailure(pending, changes);
-        if (changes.isNotEmpty) {
+        if (structure != null || changes.isNotEmpty) {
           try {
-            final prepared = await backend.prepareUpdate(
-              baseline,
-              document,
-              changes,
-              generation: generation,
-              animate: !initial && !_resumeWithoutAnimation,
-              intent: pending?.plan,
-              atomic: move != null,
-            );
-            candidate = prepared.publication;
-            failures = failures.isEmpty
-                ? prepared.failures
-                : {...failures, ...prepared.failures};
-          } on DatasetException catch (error) {
-            if (move == null) rethrow;
+            if (structure != null) {
+              candidate = await backend.prepareStructure(
+                baseline,
+                structure.document,
+              );
+            } else {
+              final prepared = await backend.prepareUpdate(
+                baseline,
+                document,
+                changes,
+                generation: generation,
+                animate: !initial && !_resumeWithoutAnimation,
+                intent: pending?.plan,
+                atomic: edit != null,
+              );
+              candidate = prepared.publication;
+              failures = failures.isEmpty
+                  ? prepared.failures
+                  : {...failures, ...prepared.failures};
+            }
+          } catch (error) {
+            if (edit == null || !_expected(error)) rethrow;
             if (valid()) {
               pending!.ledger.reject([_failure(error)]);
               _executing = null;
@@ -749,15 +853,15 @@ final class MapSession {
           candidate = baseline;
           backend.retain(candidate);
         }
-        if (move != null) {
+        if (edit != null) {
           if (!valid()) return;
           if (!active ||
               suspension != _suspension ||
-              !move.canPublish() ||
+              !edit.canPublish() ||
               failures.isNotEmpty) {
             pending!.ledger.reject(
               failures.isEmpty
-                  ? const [_moveConflict]
+                  ? [conflict]
                   : failures.values.expand((value) => value),
             );
             _executing = null;
@@ -815,12 +919,22 @@ final class MapSession {
           failures,
         );
         pending?.ledger.recordFailures(failures);
-        if (move != null) {
-          pending!.move = null;
-          if (move.record && history != null) {
+        if (edit != null) {
+          pending!.edit = null;
+          if (structure != null) {
+            _document = structure.document;
+            final removed = structure.removed;
+            if (removed != null) {
+              _values.removeWhere((target, _) => removed.contains(target.id));
+              _failedTargets.removeAll(removed);
+            }
+            final before = _layers?.opacity;
+            _layers?.rootsChanged(removed);
+            _publishPresentation(before);
+          } else if ((edit as _MovePublication).record && history != null) {
             history.recordPositions(changes, readEditSelection);
           }
-          move.didPublish();
+          edit.didPublish();
         } else if (history != null &&
             !history.isEmpty &&
             changes.entries.any(
@@ -905,7 +1019,7 @@ final class MapSession {
 
   void _interrupt(PatchMapInterruption reason, {PatchMapFailure? failure}) {
     _pending?.ledger.interrupt(reason, failure: failure);
-    _pendingMove?.ledger.interrupt(reason, failure: failure);
+    _pendingEdit?.ledger.interrupt(reason, failure: failure);
     _executing?.ledger.interrupt(reason, failure: failure);
     final replacement = _replacementResult;
     if (replacement != null && !replacement.isCompleted) {
@@ -921,7 +1035,7 @@ final class MapSession {
       );
     }
     _pending = null;
-    _pendingMove = null;
+    _pendingEdit = null;
     _executing = null;
     _submission = null;
     _replacementResult = null;
@@ -952,20 +1066,36 @@ class _Pending {
   Map<PatchMapTarget, PresentationPatch> index = {};
   final ledger = RequestLedger();
   Set<String>? rolledBack;
-  _MovePublication? move;
+  _EditPublication? edit;
 }
 
-class _MovePublication {
-  const _MovePublication(
-    this.after,
-    this.canPublish,
-    this.didPublish,
-    this.record,
-  );
+sealed class _EditPublication {
+  const _EditPublication(this.after, this.canPublish, this.didPublish);
   final _Pending? after;
   final bool Function() canPublish;
   final void Function() didPublish;
+}
+
+final class _MovePublication extends _EditPublication {
+  const _MovePublication(
+    super.after,
+    super.canPublish,
+    super.didPublish,
+    this.record,
+  );
   final bool record;
+}
+
+final class _StructurePublication extends _EditPublication {
+  const _StructurePublication(
+    super.after,
+    super.canPublish,
+    super.didPublish,
+    this.document,
+    this.removed,
+  );
+  final DatasetDocument document;
+  final Set<String>? removed;
 }
 
 class _Submission {

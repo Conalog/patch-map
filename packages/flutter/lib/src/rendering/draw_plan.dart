@@ -65,8 +65,7 @@ final class RenderPlan {
         pages[slot ~/ geometry.nodes.pageSize].nodes[slot %
             geometry.nodes.pageSize];
     _Member? member(int slot) {
-      if (previous != null &&
-          identical(previous.geometry.topology, geometry.topology)) {
+      if (previous != null) {
         final old = previous._chunkFor(slot);
         if (old != null && identical(node(slot), previous._node(slot))) {
           return old.members[previous._slotChunks[slot] % 100];

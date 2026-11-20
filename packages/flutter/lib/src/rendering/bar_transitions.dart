@@ -159,6 +159,9 @@ final class BarTransitions {
   }
 
   void clear() => _active.clear();
+
+  void removeTrailingSlots(int length) =>
+      _active.removeWhere((key, _) => key.$1 >= length);
 }
 
 final class _Transition {

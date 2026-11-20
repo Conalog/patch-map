@@ -132,6 +132,21 @@ void main() {
     await _progress(tester);
     expect((await redo).positions, moved.positions);
     expect(controller.getGeometry('a')!.bounds!.right, 70);
+
+    final added = await _submitted(
+      tester,
+      controller.addObjects([
+        {'type': 'text', 'id': 'label', 'text': 'New label'},
+      ]),
+    );
+    expect(added.outcome, PatchMapOutcome.applied);
+    expect(controller.rootIds, ['a', 'b', 'label']);
+    expect(controller.selected.single.id, 'label');
+    final undoAdd = controller.undo();
+    await _progress(tester);
+    expect((await undoAdd).result.outcome, PatchMapOutcome.applied);
+    expect(controller.rootIds, ['a', 'b']);
+    expect(controller.selected.map((object) => object.id), ['a', 'b']);
   });
 
   testWidgets('installed consumer opts into a submitted long-press move', (

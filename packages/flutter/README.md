@@ -90,7 +90,8 @@ before publication. Fractional milliseconds retain microsecond rounding.
 | --- | --- |
 | `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
 | `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
-| `getValue(target)` | Immutable current effective record, including current components for a published item; null for a missing target |
+| `getValue(target)` / `rootIds` | Immutable current effective record and authored root IDs in document order |
+| `addObjects(objects, selectAdded:)` | Append authored roots to the current diagram as one editor action |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
@@ -377,6 +378,29 @@ in their parent coordinates. An already aligned selection returns `unchanged`.
 If the selection or a target's alignment geometry changes before publication,
 the command rejects with `MOVE_CONFLICT`. The selection and camera are retained.
 
+### Add objects to a diagram
+
+```dart
+final result = await controller.addObjects([
+  {
+    'type': 'image',
+    'id': 'site-photo',
+    'source': 'https://example.com/photo.jpg',
+    'size': {'width': 180, 'height': 120},
+    'attrs': {'x': 80, 'y': 40},
+  },
+]);
+```
+
+Use the same element schema as `draw`. The active, ready diagram admits an
+entire list of roots together, including their child, component, and grid-cell
+identities. Existing roots keep their effective values and camera. By default
+the added selectable roots become the selection. Pass `selectAdded: false`
+to retain the current selection. An edit in flight or a long-press gesture
+rejects another addition with `EDIT_BUSY`. Empty input returns `unchanged`.
+Success follows the first matching frame submission. Image decode and download
+still use `onImageFailure` and asynchronous resource loading.
+
 ### Undo and redo editor actions
 
 ```dart
@@ -397,16 +421,20 @@ adds one entry. Long-press selection, range selection on release, and clearing
 selection by double-tapping the empty canvas also add one entry when the
 selected IDs change. A hold that selects and then moves an object records the
 selection and movement in that order. Programmatic selection commands, cancelled
-selection previews and unchanged actions leave history intact. A new entry
-drops the redo branch and capacity evicts the oldest entries.
+selection previews and unchanged actions leave history intact. Adding roots
+records the whole batch and its selection in one entry. Undo removes the added
+roots and restores the previous selection. Redo restores the original records,
+identities and selection. A new entry drops the redo branch and capacity evicts
+the oldest entries.
 
 `controller.editHistoryState` reports both depths, availability and whether a
-position edit or replay is in flight. `undo()` and `redo()` restore the saved
+scene edit or replay is in flight. `undo()` and `redo()` restore the saved
 local position axes and the still-selectable IDs from that edit. Related
 geometry updates with the same publication. Camera and other effective fields
 are retained. A position replay returns the restored positions after frame
-submission. A selection replay advances history immediately, with no position
-changes, and repaints through the usual selection path.
+submission. An addition replay completes after submission and returns an empty
+position map. A selection replay advances history immediately and repaints
+through the usual selection path.
 An empty branch returns `unchanged`; a conflict or busy session rejects without
 advancing history. A target that became immovable can be retried after the
 restriction is lifted.
@@ -447,7 +475,8 @@ match authored colors. It does not resolve theme tokens and throws
 The runtime covers item, grid, group, relations, image, text, rect and the four
 item components (background, bar, icon, text). It retains scene geometry and
 uses CustomPainter, shared text/SVG resources, and internal bar optimizations.
-Flutter editing covers opt-in range selection and translation. PNG export and
+Flutter editing covers opt-in range selection, translation, alignment, and
+adding new roots. PNG export and
 item screen-reader support are outside the current scope.
 Advanced text effects and full platform equivalence are not qualified by synthetic tests.
 

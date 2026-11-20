@@ -104,6 +104,90 @@ List<String> _selected(PatchMapController map) =>
     map.selected.map((item) => item.id).toList();
 
 void main() {
+  testWidgets('adds roots together without replacing the live diagram', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    map.setCamera(center: const Offset(35, 72), scale: 1.7, rotation: .3);
+    map.select(['a']);
+    final camera = map.camera;
+    final prior = map.updateValues([
+      const PatchMapUpdate(_b, {'label': 'live'}),
+    ]);
+    final draft = [
+      _rect('new', 90, 55),
+      {
+        'type': 'relations',
+        'id': 'string',
+        'links': [
+          {'source': 'b', 'target': 'new'},
+        ],
+      },
+    ];
+    final addition = map.addObjects(draft);
+    draft.first['id'] = 'not-published';
+    expect(map.rootIds, [..._ids, 'link']);
+    expect(map.editHistoryState.isBusy, isTrue);
+    expect((await _submit(tester, prior)).outcome, PatchMapOutcome.applied);
+    expect((await _submit(tester, addition)).outcome, PatchMapOutcome.applied);
+    expect(map.rootIds, [..._ids, 'link', 'new', 'string']);
+    expect(_selected(map), ['new', 'string']);
+    expect(map.editHistoryState.undoDepth, 1);
+    expect(map.camera, camera);
+    expect(map.getGeometry('string')!.bounds, isNotNull);
+
+    final undo = map.undo();
+    final removedWrite = await map.updateValues([
+      const PatchMapUpdate(PatchMapTarget('new'), {'label': 'stale'}),
+    ]);
+    expect(removedWrite.failures.single.code, 'EDIT_BUSY');
+    expect(
+      (await _submit(tester, undo)).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.rootIds, [..._ids, 'link']);
+    expect(map.getGeometry('new'), isNull);
+    expect(map.getValue(const PatchMapTarget('string')), isNull);
+    expect(_selected(map), ['a']);
+
+    final invalid = await map.addObjects([
+      _rect('other', 0, 0),
+      _rect('b', 0, 0),
+    ]);
+    expect(invalid.failures.single.code, 'DUPLICATE_ID');
+    expect(map.getGeometry('other'), isNull);
+    expect(map.editHistoryState.redoDepth, 1);
+    final redone = await _submit(tester, map.redo());
+    expect(redone.result.outcome, PatchMapOutcome.applied);
+    expect(redone.positions, isEmpty);
+    expect(map.getGeometry('new')!.origin, const Offset(90, 55));
+    expect(map.getValue(_b)!['label'], 'live');
+    expect(_selected(map), ['new', 'string']);
+    expect(map.camera, camera);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('can add roots to an empty diagram without recording history', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map, limit: 0));
+    expect(
+      (await _submit(tester, map.draw([]))).outcome,
+      PatchMapOutcome.applied,
+    );
+    final added = await _submit(
+      tester,
+      map.addObjects([_rect('a', 10, 20)], selectAdded: false),
+    );
+    expect(added.outcome, PatchMapOutcome.applied);
+    expect(map.getGeometry('a')!.origin, const Offset(10, 20));
+    expect(_selected(map), isEmpty);
+    expect((await map.undo()).result.outcome, PatchMapOutcome.unchanged);
+  });
+
   testWidgets('records completed point, range and clear selections', (
     tester,
   ) async {

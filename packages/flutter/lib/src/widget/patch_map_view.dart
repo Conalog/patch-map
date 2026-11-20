@@ -848,7 +848,25 @@ class _PatchMapViewState extends State<PatchMapView>
   }
 
   @override
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    required bool selectAdded,
+  }) => session.addObjects(
+    objects,
+    selectAdded: selectAdded,
+    restoreSelection: _restoreHistorySelection,
+    gestureInProgress: _editor.isDragging,
+  );
+
+  @override
   PatchMapEditHistoryState get editHistoryState => session.editHistoryState;
+
+  @override
+  List<String> get rootIds => phase == PatchMapPhase.ready
+      ? List.unmodifiable(
+          session.document!.roots.map((root) => root['id']! as String),
+        )
+      : const [];
 
   @override
   Future<PatchMapMoveResult> replayEdit({required bool redo}) =>

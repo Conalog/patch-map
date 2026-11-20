@@ -30,6 +30,19 @@ final class PresentationLayers {
   int get layerCount => _layers.length;
   PresentationOpacity? get opacity => _opacity;
 
+  /// Root append leaves existing membership intact. Undo drops addresses
+  /// belonging to the removed roots before their IDs can be used again.
+  void rootsChanged(Set<String>? removed) {
+    _index = null;
+    if (removed == null) return;
+    for (final layer in _layers.values) {
+      layer.scope.removeWhere((target) => removed.contains(target.id));
+      layer.matched.removeWhere((target) => removed.contains(target.id));
+      layer.factors.removeWhere((target, _) => removed.contains(target.id));
+    }
+    _compose();
+  }
+
   PatchMapPresentationResult set(
     String key,
     PatchMapPresentationLayer layer,

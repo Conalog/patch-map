@@ -10,6 +10,40 @@ class DatasetDocument {
   DatasetDocument._(this.roots, this.targets);
   final List<Map<String, Object?>> roots;
   final Map<String, DatasetTarget> targets;
+
+  DatasetDocument append(DatasetDocument added) {
+    for (final id in added.targets.keys) {
+      if (targets.containsKey(id)) {
+        throw DatasetException('DUPLICATE_ID', id, 'duplicate element ID $id');
+      }
+    }
+    return DatasetDocument._(
+      List.unmodifiable([...roots, ...added.roots]),
+      Map.unmodifiable({...targets, ...added.targets}),
+    );
+  }
+
+  DatasetDocument removeAppended(DatasetDocument added) {
+    final start = roots.length - added.roots.length;
+    if (start < 0 ||
+        !roots
+            .skip(start)
+            .indexed
+            .every((entry) => identical(entry.$2, added.roots[entry.$1]))) {
+      throw DatasetException(
+        'EDIT_CONFLICT',
+        r'$',
+        'the added roots are no longer the last roots',
+      );
+    }
+    return DatasetDocument._(
+      List.unmodifiable(roots.take(start)),
+      Map.unmodifiable({
+        for (final entry in targets.entries)
+          if (!added.targets.containsKey(entry.key)) entry.key: entry.value,
+      }),
+    );
+  }
 }
 
 class DatasetTarget {
@@ -36,7 +70,8 @@ class DatasetTarget {
 /// Stateless admission: a candidate becomes observable only after all roots pass.
 class DatasetReader {
   const DatasetReader();
-  DatasetDocument read(Object? input) => _Candidate().read(input);
+  DatasetDocument read(Object? input, {int rootOffset = 0}) =>
+      _Candidate().read(input, rootOffset);
 }
 
 const _elementBase = ['type', 'id', 'label', 'show', 'locked', 'attrs'];
@@ -70,11 +105,11 @@ class _Candidate {
   final _targets = <String, DatasetTarget>{};
   final _ancestors = HashSet<Object>.identity();
 
-  DatasetDocument read(Object? input) {
+  DatasetDocument read(Object? input, int rootOffset) {
     final values = array(input, r'$');
     final roots = List<Map<String, Object?>>.unmodifiable([
       for (var i = 0; i < values.length; i++)
-        _element(values[i], '\$[$i]', null),
+        _element(values[i], '\$[${rootOffset + i}]', null),
     ]);
     return DatasetDocument._(roots, Map.unmodifiable(_targets));
   }

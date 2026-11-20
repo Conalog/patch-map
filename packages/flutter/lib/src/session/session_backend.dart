@@ -59,6 +59,12 @@ abstract class SessionBackend {
     int generation,
   );
 
+  /// Prepare appended or removed roots while retaining current values and resources.
+  Future<SessionPublication> prepareStructure(
+    SessionPublication before,
+    DatasetDocument document,
+  ) => Future.error(UnsupportedError('Structural editing is unavailable'));
+
   /// A respecified failed source is work even when its scalar value is equal.
   bool needsRetry(SessionPublication publication, PresentationPatch patch) =>
       false;

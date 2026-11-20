@@ -27,16 +27,18 @@ or paint failure stops that generation and settles all outstanding requests with
 the whole-map failure. Ordinary updates cannot restart it; only a new accepted
 replacement starts recovery.
 
-The optional editor history belongs to the accepted generation. The same
-atomic drain commits edited coordinates, moves the history cursor, and restores
-selection on a position replay. A completed selection can record its own
-before/after IDs. Replaying that entry advances the same cursor and applies the
-selection without publishing a new dataset revision. Successful
-external writes to a retained position axis clear both branches. Successful
-position results and their button availability are observed after the matching
-submission. If a published edit is waiting for a frame during inactivity, the
-retained scene and cursor resume together through the existing submission
-obligation.
+The generation owns one editor history. Position and structural edits share
+the publication drain and matching frame acknowledgement. Selection-only
+replay advances the cursor and restores IDs without a dataset revision.
+External writes to retained position axes clear both branches. During inactivity,
+the published cursor and scene retain their common submission obligation.
+
+Detach and validate appended roots at admission. Process earlier value updates
+before rebuilding topology and spatial membership with surviving slot IDs,
+effective geometry and resources. History stores the added fragment and
+selection IDs. Undo removes that fragment and its live value and presentation
+addresses. Writes to those addresses reject during removal. Failure before
+publication leaves scene, selection and cursor intact.
 
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.

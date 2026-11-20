@@ -406,6 +406,70 @@ final class MapBackend extends SessionBackend {
   }
 
   @override
+  Future<SessionPublication> prepareStructure(
+    SessionPublication before,
+    DatasetDocument document,
+  ) async {
+    final previous = before as RenderPublication;
+    final resources = previous.resources;
+    return resources.text.withPreparation(() {
+      final geometry = GeometrySnapshot.compile(
+        document,
+        resources.text.measure,
+        previous: previous.geometry,
+      );
+      final changed = <int>[];
+      final pages = <RenderPage>[];
+      final compiled = <DrawNode>[];
+      try {
+        for (var i = 0; i < geometry.nodes.pages.length; i++) {
+          final page = geometry.nodes.pages[i];
+          final old = i < previous.pages.length ? previous.pages[i] : null;
+          final nodes = <DrawNode>[];
+          var reusePage = old?.nodes.length == page.length;
+          for (var j = 0; j < page.length; j++) {
+            final node = page[j];
+            final prior = old != null && j < old.nodes.length
+                ? old.nodes[j]
+                : null;
+            if (identical(prior?.geometry, node)) {
+              nodes.add(prior!);
+            } else {
+              reusePage = false;
+              final rendered = resources.compiler.compile(
+                node,
+                initialLoad: false,
+                previous: prior,
+                relation: geometry.relationFor(node.id),
+              )..retain();
+              compiled.add(rendered);
+              nodes.add(rendered);
+              changed.add(i * geometry.nodes.pageSize + j);
+            }
+          }
+          pages.add(
+            (reusePage ? old! : RenderPage(List.unmodifiable(nodes)))..retain(),
+          );
+        }
+        return RenderPublication(
+          geometry,
+          List.unmodifiable(pages),
+          resources,
+          previousPlan: previous.plan,
+          changed: List.unmodifiable(changed),
+        );
+      } finally {
+        for (final page in pages) {
+          page.release();
+        }
+        for (final node in compiled) {
+          node.release();
+        }
+      }
+    });
+  }
+
+  @override
   bool needsRetry(SessionPublication publication, PresentationPatch patch) {
     if (!patch.operations.any((op) => op.path.first == 'source')) return false;
     final before = publication as RenderPublication;
@@ -802,13 +866,19 @@ final class MapBackend extends SessionBackend {
         previous != null &&
         next.commitRetained(transitions, retirement.enqueue);
     final componentChanges = next.takeComponentChanges();
-    if (nextGeneration != generation || previous == null) {
-      transitions.clear();
+    final replacing = nextGeneration != generation || previous == null;
+    if (replacing ||
+        !identical(previous.geometry.topology, next.geometry.topology)) {
       spatial.reset([
         for (var i = 0; i < next.geometry.nodes.length; i++)
           next.geometry.nodes[i].paintBounds ?? Rect.zero,
       ]);
-      _pendingFit = true;
+      if (replacing) {
+        transitions.clear();
+        _pendingFit = true;
+      } else if (next.geometry.nodes.length < previous.geometry.nodes.length) {
+        transitions.removeTrailingSlots(next.geometry.nodes.length);
+      }
     } else {
       for (final slot in next.changed) {
         final old = retained

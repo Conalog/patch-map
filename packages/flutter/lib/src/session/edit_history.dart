@@ -3,6 +3,7 @@ import 'dart:ui' show Offset;
 import '../api/edit_history.dart';
 import '../api/target.dart';
 import '../api/update.dart';
+import '../dataset/dataset_reader.dart';
 import '../geometry/affine.dart' show localTranslation;
 import '../presentation/record_delta.dart';
 
@@ -52,6 +53,12 @@ final class EditHistory {
     return true;
   }
 
+  void recordAddition(
+    DatasetDocument added,
+    List<String> before,
+    List<String> after,
+  ) => _append(EditHistoryEntry._(const {}, before, after, added: added));
+
   void _append(EditHistoryEntry entry) {
     _entries.replaceRange(_cursor, _entries.length, [entry]);
     if (_entries.length > limit) _entries.removeAt(0);
@@ -91,11 +98,13 @@ final class EditHistoryEntry {
   EditHistoryEntry._(
     this._positions,
     this._beforeSelection,
-    this._afterSelection,
-  );
+    this._afterSelection, {
+    this.added,
+  });
 
   final Map<String, _PositionChange> _positions;
   final List<String> _beforeSelection, _afterSelection;
+  final DatasetDocument? added;
   bool get hasPositions => _positions.isNotEmpty;
   Iterable<String> get ids => _positions.keys;
 

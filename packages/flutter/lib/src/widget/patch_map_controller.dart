@@ -28,6 +28,13 @@ final class PatchMapController {
   Future<PatchMapResult> updateValues(Iterable<PatchMapUpdate> updates) =>
       _binding?.update(updates) ?? _detached();
 
+  /// Append authored root objects to the current diagram as one editor action.
+  /// Success follows submission. The camera and existing effective data remain.
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    bool selectAdded = true,
+  }) => _binding?.addObjects(objects, selectAdded: selectAdded) ?? _detached();
+
   /// Replace one captured alpha layer. Acceptance is synchronous; the next
   /// ordinary frame displays it. Authored/live values and selection stay intact.
   PatchMapPresentationResult setPresentation(
@@ -38,6 +45,9 @@ final class PatchMapController {
       _binding?.clearPresentation(key) ?? _presentationDenial();
   Map<String, Object?>? getValue(PatchMapTarget target) =>
       _binding?.value(target);
+
+  /// Authored root IDs in document order from the current publication.
+  List<String> get rootIds => _binding?.rootIds ?? const [];
 
   /// Latest published object geometry, independent of the camera transform.
   /// Returns null for unknown IDs or a detached/empty/preparing/failed map.
@@ -81,12 +91,12 @@ final class PatchMapController {
   PatchMapEditHistoryState get editHistoryState =>
       _binding?.editHistoryState ?? emptyEditHistoryState;
 
-  /// Restore the previous editor action. Position results follow submission.
+  /// Restore the previous editor action. Scene changes follow submission.
   Future<PatchMapMoveResult> undo() =>
       _binding?.replayEdit(redo: false) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));
 
-  /// Reapply the next editor action. Position results follow submission.
+  /// Reapply the next editor action. Scene changes follow submission.
   Future<PatchMapMoveResult> redo() =>
       _binding?.replayEdit(redo: true) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));
@@ -117,12 +127,17 @@ abstract class PatchMapBinding {
   PatchMapCameraState? get camera;
   Future<PatchMapResult> draw(Object? data);
   Future<PatchMapResult> update(Iterable<PatchMapUpdate> updates);
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    required bool selectAdded,
+  });
   PatchMapPresentationResult setPresentation(
     String key,
     PatchMapPresentationLayer layer,
   );
   PatchMapPresentationResult clearPresentation(String key);
   Map<String, Object?>? value(PatchMapTarget target);
+  List<String> get rootIds;
   PatchMapObjectGeometry? geometry(String id);
   PatchMapResult fit(Iterable<String>? targets, EdgeInsets padding);
   PatchMapResult focus(Iterable<String> targets, EdgeInsets padding);
