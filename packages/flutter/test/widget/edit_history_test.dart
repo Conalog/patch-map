@@ -112,6 +112,56 @@ Map<String, Object?> _relation(String id, Object source, Object target) => {
 };
 
 void main() {
+  testWidgets(
+    'finishing an empty relation merges deletion with the last unlink',
+    (tester) async {
+      final map = PatchMapController();
+      await tester.pumpWidget(_host(map));
+      await _draw(tester, map);
+      const target = PatchMapTarget('link');
+      final oldLinks = map.getValue(target)!['links'];
+      final emptied = await _submit(
+        tester,
+        map.updateRelation('link', links: []),
+      );
+      expect(emptied.outcome, PatchMapOutcome.applied);
+      expect(map.getValue(target)!['links'], isEmpty);
+      expect(map.getSelectableRelationsFor('a'), isEmpty);
+      expect(
+        (await _submit(
+          tester,
+          map.updateValues([
+            const PatchMapUpdate(target, {'label': 'latest label'}),
+          ]),
+        )).outcome,
+        PatchMapOutcome.applied,
+      );
+
+      map.select(['link']);
+      final deleted = await _submit(
+        tester,
+        map.removeRelation('link', mergeEmptyLinkEdit: true),
+      );
+      expect(deleted.outcome, PatchMapOutcome.applied);
+      expect(map.getValue(target), isNull);
+      expect(map.editHistoryState.undoDepth, 1);
+      expect(
+        (await _submit(tester, map.undo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(target)!['links'], oldLinks);
+      expect(map.getValue(target)!['label'], 'latest label');
+      expect(_selected(map), ['link']);
+      expect(map.getSelectableRelationsFor('a').single.id, 'link');
+      expect(
+        (await _submit(tester, map.redo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(target), isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('edits and removes nested relations in the document history', (
     tester,
   ) async {

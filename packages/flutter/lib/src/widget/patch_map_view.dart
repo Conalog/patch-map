@@ -325,6 +325,7 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previousDoubleTap = _gestureOptions.doubleTapEnabled;
     try {
       if (backend.camera.setRotationAnimation(widget.rotationAnimation)) {
         frame.invalidate();
@@ -374,21 +375,29 @@ class _PatchMapViewState extends State<PatchMapView>
       _observe(session.replace(widget.initialData));
     }
     if (zoomChanged) frame.invalidate();
-    _configureInput();
+    _configureInput(
+      doubleTapChanged: previousDoubleTap != _gestureOptions.doubleTapEnabled,
+    );
     _activity();
   }
 
   bool get _doubleTapZoomEnabled =>
-      _gestureOptions.doubleTapDragZoomEnabled && _gestureOptions.zoomEnabled;
+      _gestureOptions.doubleTapEnabled &&
+      _gestureOptions.doubleTapDragZoomEnabled &&
+      _gestureOptions.zoomEnabled;
 
   bool get _canStartInput => phase == PatchMapPhase.ready && session.active;
 
-  void _configureInput() {
+  void _configureInput({bool doubleTapChanged = false}) {
     input.dragMode = widget.dragMode;
     input.configureDoubleTapZoom(_doubleTapZoomEnabled);
     final wasDeferred = _deferInput;
     _deferInput = true;
     try {
+      if (doubleTapChanged) {
+        input.cancel(PatchMapEndReason.cancelled);
+        _gestureArena.reset();
+      }
       input.configureLongPressEdit(
         widget.longPressEditEnabled ? _editor : null,
       );
@@ -586,6 +595,7 @@ class _PatchMapViewState extends State<PatchMapView>
             child: MapGestureDetector(
               arena: _gestureArena,
               canStart: () => _canStartInput,
+              doubleTapEnabled: _gestureOptions.doubleTapEnabled,
               longPressDuration: _gestureOptions.longPressDuration,
               onTap: () => input.recognizedTap(epoch: _recognitionEpoch),
               onDoubleTap: (pointer) => input.recognizedDoubleTap(
@@ -899,11 +909,13 @@ class _PatchMapViewState extends State<PatchMapView>
     List<Map<String, Object?>>? links,
     Map<String, Object?>? metadata,
     bool remove = false,
+    bool mergeEmptyLinkEdit = false,
   }) => session.editRelation(
     id,
     links: links,
     metadata: metadata,
     remove: remove,
+    mergeEmptyLinkEdit: mergeEmptyLinkEdit,
     restoreSelection: _restoreHistorySelection,
     gestureInProgress: _editor.isDragging,
   );

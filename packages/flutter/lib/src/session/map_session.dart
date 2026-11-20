@@ -323,6 +323,7 @@ final class MapSession {
     List<Map<String, Object?>>? links,
     Map<String, Object?>? metadata,
     required bool remove,
+    bool mergeEmptyLinkEdit = false,
     required void Function(List<String>) restoreSelection,
     required bool gestureInProgress,
   }) async {
@@ -402,7 +403,12 @@ final class MapSession {
             ? before.where((selected) => selected != id).toList()
             : before;
         if (remove && after.length != before.length) restoreSelection(after);
-        _editHistory?.recordRelation(change, before, after);
+        _editHistory?.recordRelation(
+          change,
+          before,
+          after,
+          mergeEmptyLinkEdit: mergeEmptyLinkEdit,
+        );
       },
     );
   }

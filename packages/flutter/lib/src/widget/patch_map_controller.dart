@@ -46,8 +46,17 @@ final class PatchMapController {
       _detached();
 
   /// Remove a root or nested relation as one undoable edit.
-  Future<PatchMapResult> removeRelation(String id) =>
-      _binding?.editRelation(id, remove: true) ?? _detached();
+  /// A matching last link edit can be merged so undo restores a linked relation.
+  Future<PatchMapResult> removeRelation(
+    String id, {
+    bool mergeEmptyLinkEdit = false,
+  }) =>
+      _binding?.editRelation(
+        id,
+        remove: true,
+        mergeEmptyLinkEdit: mergeEmptyLinkEdit,
+      ) ??
+      _detached();
 
   /// Replace one captured alpha layer. Acceptance is synchronous; the next
   /// ordinary frame displays it. Authored/live values and selection stay intact.
@@ -159,6 +168,7 @@ abstract class PatchMapBinding {
     List<Map<String, Object?>>? links,
     Map<String, Object?>? metadata,
     bool remove = false,
+    bool mergeEmptyLinkEdit = false,
   });
   PatchMapPresentationResult setPresentation(
     String key,

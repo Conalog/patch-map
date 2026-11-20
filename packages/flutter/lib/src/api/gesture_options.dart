@@ -8,6 +8,7 @@
 final class PatchMapGestureOptions {
   const PatchMapGestureOptions({
     this.zoomEnabled = true,
+    this.doubleTapEnabled = true,
     this.doubleTapDragZoomEnabled = false,
     this.rotationEnabled = true,
     this.zoomThreshold = .02,
@@ -20,6 +21,10 @@ final class PatchMapGestureOptions {
   /// Enable pinch, wheel and opted-in double-tap drag scaling.
   /// Two-finger translation remains available.
   final bool zoomEnabled;
+
+  /// Recognize double taps and arbitrate them against single taps.
+  /// Disable for tools that act on each tap as soon as it resolves.
+  final bool doubleTapEnabled;
 
   /// Allow a nearby second touch to drag vertically and zoom at the viewport
   /// center in pan mode. An eligible second touch skips long-press recognition.

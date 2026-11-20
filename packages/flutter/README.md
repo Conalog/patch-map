@@ -278,6 +278,10 @@ callbacks. Move callbacks are coalesced per frame while intermediate path hits
 are retained. Interrupted drags have one end event with a reason; widget removal
 does not emit a new callback. No domain fetching or business action is built in.
 
+Set `PatchMapGestureOptions(doubleTapEnabled: false)` for tools that use each
+single tap without waiting for a possible double tap. This also disables
+double-tap drag zoom. Pinch, rotation and pan remain available.
+
 Configure selection decoration with `selectionStyle`; rebuilding the same widget
 with a new value updates existing selection without replacing data, moving the
 camera or emitting selection changes:
@@ -418,6 +422,9 @@ removes the relation and drops its ID from selection. Its endpoints remain in th
 diagram. These commands require an active, ready map and reject locked relations.
 Results follow submission. Undo and redo restore the changed relation record and
 selection. Replay rejects newer writes to edited fields or a newly locked relation.
+Pass `mergeEmptyLinkEdit: true` to `removeRelation` when finishing an edit that
+left a relation empty. If the preceding history entry removed its last link,
+one undo restores that relation with its prior links.
 
 ### Undo and redo editor actions
 

@@ -63,8 +63,29 @@ final class EditHistory {
   void recordRelation(
     RelationEdit relation,
     List<String> before,
-    List<String> after,
-  ) => _append(EditHistoryEntry._(const {}, before, after, relation: relation));
+    List<String> after, {
+    bool mergeEmptyLinkEdit = false,
+  }) {
+    if (mergeEmptyLinkEdit && relation.after == null) {
+      final prior = at(redo: false)?.relation;
+      if (prior != null &&
+          prior.changesLinks &&
+          prior.metadataKeys.isEmpty &&
+          identical(prior.after?.authored, relation.before.authored) &&
+          (relation.before.effective['links'] as List).isEmpty &&
+          (prior.before.effective['links'] as List).isNotEmpty) {
+        relation.before = (
+          authored: prior.before.authored,
+          effective: prior.apply(
+            relation.before.effective,
+            prior.before.effective,
+          ),
+        );
+        _cursor--;
+      }
+    }
+    _append(EditHistoryEntry._(const {}, before, after, relation: relation));
+  }
 
   void _append(EditHistoryEntry entry) {
     _entries.replaceRange(_cursor, _entries.length, [entry]);
