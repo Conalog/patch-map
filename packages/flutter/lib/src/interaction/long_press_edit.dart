@@ -27,6 +27,7 @@ final class LongPressEdit {
     required this.invalidate,
     required this.resolveTarget,
     required this.isCommitPending,
+    required this.recordSelection,
     required this.commit,
     required this.notify,
     required this.reportError,
@@ -40,6 +41,8 @@ final class LongPressEdit {
   final void Function() invalidate;
   final EditTargetResolver resolveTarget;
   final bool Function() isCommitPending;
+  final bool Function(Iterable<String> before, Iterable<String> after)
+  recordSelection;
   final CommitMove commit;
   final void Function(PatchMapMoveResult) notify;
   final void Function(Object, StackTrace) reportError;
@@ -123,13 +126,14 @@ final class LongPressEdit {
     move(local, slop);
     final drag = _drag;
     _drag = null;
-    if (drag == null || !drag.moved) return;
+    if (drag == null) return;
     final snapshot = currentGeometry();
     if (snapshot == null || !identical(snapshot.topology, drag.topology)) {
       invalidate();
       return;
     }
     if (drag.targets.isEmpty) {
+      if (!drag.moved) return;
       final box = Rect.fromPoints(drag.start, drag.end);
       if (!box.isEmpty) {
         final range = Quad(
@@ -138,7 +142,7 @@ final class LongPressEdit {
           camera.localToWorld(box.bottomRight),
           camera.localToWorld(box.bottomLeft),
         );
-        selection.set(
+        _applySelection(
           editRoots(snapshot, [
             for (final hit in query.range(snapshot, range, camera.rotation))
               ?_resolve(snapshot, hit),
@@ -148,6 +152,14 @@ final class LongPressEdit {
       invalidate();
       return;
     }
+    if (selection.revision == drag.selectionRevision) {
+      // A completed hold can change selection even when its move is a no-op.
+      drag.selectionRecorded = recordSelection(
+        drag.selectionBefore,
+        selection.ids,
+      );
+    }
+    if (!drag.moved) return;
     final delta = drag.worldDelta(camera);
     if (delta == Offset.zero) {
       invalidate();
@@ -208,9 +220,16 @@ final class LongPressEdit {
     final snapshot = currentGeometry();
     if (snapshot != null &&
         _pending == null &&
+        !isCommitPending() &&
         _point(snapshot, camera.localToWorld(local)) == null) {
-      selection.clear();
+      _applySelection(const []);
     }
+  }
+
+  void _applySelection(List<String> ids) {
+    if (isCommitPending()) return;
+    recordSelection(selection.ids, ids);
+    selection.set(ids);
   }
 
   void onCameraChanged() {
@@ -226,6 +245,7 @@ final class LongPressEdit {
     if (drag == null || drag.published || drag.cancelled) return;
     drag.cancelled = true;
     if (restore &&
+        !drag.selectionRecorded &&
         drag.targets.isNotEmpty &&
         selection.revision == drag.selectionRevision &&
         identical(currentGeometry()?.topology, drag.topology)) {
@@ -311,6 +331,7 @@ final class _EditDrag {
   Offset end;
   int? selectionRevision;
   bool moved = false, cancelled = false, published = false;
+  bool selectionRecorded = false;
 
   Offset worldDelta(MapCamera camera) =>
       camera.localToWorld(end) - camera.localToWorld(start);

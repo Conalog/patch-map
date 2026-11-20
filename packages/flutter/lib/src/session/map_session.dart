@@ -86,6 +86,7 @@ final class MapSession {
   int get generation => _generation;
   bool get commandsAllowed => !_closed && !_inFilter;
   bool get editInFlight => _historyEditInFlight != null;
+  bool get hasEditHistory => _editHistory != null;
   PatchMapEditHistoryState get editHistoryState =>
       _editHistory?.state(
         active: active && _phase == PatchMapPhase.ready,
@@ -259,10 +260,25 @@ final class MapSession {
     void Function() didPublish,
   ) => _queueMove(updates, canPublish, didPublish, record: true);
 
+  bool recordSelection(Iterable<String> before, Iterable<String> after) {
+    final history = _editHistory;
+    if (history == null ||
+        !commandsAllowed ||
+        !active ||
+        _phase != PatchMapPhase.ready ||
+        editInFlight ||
+        !history.recordSelection(before, after)) {
+      return false;
+    }
+    _notifyEditHistory();
+    return true;
+  }
+
   Future<PatchMapMoveResult> replayEdit({
     required bool redo,
     required bool Function(String id) canMove,
     required void Function(List<String> ids) restoreSelection,
+    bool gestureInProgress = false,
   }) async {
     if (!commandsAllowed || !active || _phase != PatchMapPhase.ready) {
       return _historyDenied('NOT_READY', 'An active, ready map is required');
@@ -278,6 +294,9 @@ final class MapSession {
         const {},
       );
     }
+    if (gestureInProgress) {
+      return _historyDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
 
     final generation = _generation, suspension = _suspension;
     bool canPublish() =>
@@ -289,6 +308,17 @@ final class MapSession {
       return _historyDenied(_moveConflict.code, _moveConflict.message);
     }
 
+    final selection = entry.selection(redo: redo);
+    if (!entry.hasPositions) {
+      history.advance(redo: redo);
+      restoreSelection(selection);
+      _notifyEditHistory();
+      return PatchMapMoveResult(
+        PatchMapResult(PatchMapOutcome.applied),
+        const {},
+      );
+    }
+
     Map<String, Offset> positions = const {};
     final result = await _queueMove(entry.updates(redo: redo), canPublish, () {
       history.advance(redo: redo);
@@ -296,7 +326,7 @@ final class MapSession {
         for (final id in entry.ids)
           id: localTranslation(current(PatchMapTarget(id))!),
       };
-      restoreSelection(entry.selection);
+      restoreSelection(selection);
     }, record: false);
     return PatchMapMoveResult(
       result,
@@ -788,7 +818,7 @@ final class MapSession {
         if (move != null) {
           pending!.move = null;
           if (move.record && history != null) {
-            history.record(changes, readEditSelection);
+            history.recordPositions(changes, readEditSelection);
           }
           move.didPublish();
         } else if (history != null &&

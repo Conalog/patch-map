@@ -79,7 +79,140 @@ Future<void> _align(
   );
 }
 
+Future<TestGesture> _hold(
+  WidgetTester tester,
+  PatchMapController map,
+  Offset world,
+) async {
+  final view = tester.getTopLeft(find.byType(PatchMapView));
+  final finger = await tester.startGesture(view + map.toLocal(world)!);
+  await tester.pump(const Duration(milliseconds: 310));
+  return finger;
+}
+
+Future<void> _selectByHold(
+  WidgetTester tester,
+  PatchMapController map,
+  String id,
+) async {
+  final finger = await _hold(tester, map, map.getGeometry(id)!.center!);
+  await finger.up();
+  await tester.pump();
+}
+
+List<String> _selected(PatchMapController map) =>
+    map.selected.map((item) => item.id).toList();
+
 void main() {
+  testWidgets('records completed point, range and clear selections', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    final history = <PatchMapEditHistoryState>[];
+    await tester.pumpWidget(_host(map, onHistory: history.add));
+    await _draw(tester, map);
+    final original = _bounds(map), camera = map.camera;
+    map.select(['c']);
+    map.clearSelection();
+    expect(map.editHistoryState.undoDepth, 0);
+
+    await _selectByHold(tester, map, 'a');
+    expect(_selected(map), ['a']);
+    expect(history.last.undoDepth, 1);
+    final range = await _hold(tester, map, const Offset(30, 25));
+    final view = tester.getTopLeft(find.byType(PatchMapView));
+    await range.moveTo(view + map.toLocal(const Offset(165, 105))!);
+    await tester.pump();
+    expect(_selected(map), ['a']);
+    expect(map.editHistoryState.undoDepth, 1);
+    await range.up();
+    await tester.pump();
+    expect(_selected(map), unorderedEquals(['b', 'c']));
+    expect(history.last.undoDepth, 2);
+
+    final blank = view + map.toLocal(const Offset(-55, -45))!;
+    await tester.tapAt(blank);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(blank);
+    await tester.pump();
+    expect(_selected(map), isEmpty);
+    expect(history.last.undoDepth, 3);
+
+    final undo = await map.undo();
+    expect(undo.result.outcome, PatchMapOutcome.applied);
+    expect(undo.positions, isEmpty);
+    expect(_selected(map), unorderedEquals(['b', 'c']));
+    expect((await map.undo()).result.outcome, PatchMapOutcome.applied);
+    expect(_selected(map), ['a']);
+    expect((await map.redo()).result.outcome, PatchMapOutcome.applied);
+    expect(_selected(map), unorderedEquals(['b', 'c']));
+    expect(map.editHistoryState.redoDepth, 1);
+
+    await _selectByHold(tester, map, 'a');
+    expect(map.editHistoryState.redoDepth, 0);
+    expect(map.editHistoryState.undoDepth, 3);
+    await _selectByHold(tester, map, 'a');
+    expect(map.editHistoryState.undoDepth, 3);
+    expect(_bounds(map), original);
+    expect(map.camera, camera);
+  });
+
+  testWidgets('cancelled point selection preserves the redo branch', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    await _selectByHold(tester, map, 'a');
+    await _selectByHold(tester, map, 'b');
+    await map.undo();
+    await tester.pump();
+
+    final finger = await _hold(tester, map, map.getGeometry('c')!.center!);
+    expect(_selected(map), ['c']);
+    expect((await map.redo()).result.failures.single.code, 'EDIT_BUSY');
+    await finger.cancel();
+    await tester.pump();
+    expect(_selected(map), ['a']);
+    expect(map.editHistoryState.undoDepth, 1);
+    expect(map.editHistoryState.redoDepth, 1);
+    await map.redo();
+    expect(_selected(map), ['b']);
+  });
+
+  testWidgets('holding an unselected object then moving it records two steps', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    map.select(['a']);
+    final original = _bounds(map);
+    final finger = await _hold(tester, map, map.getGeometry('b')!.center!);
+    expect(_selected(map), ['b']);
+    expect(map.editHistoryState.undoDepth, 0);
+    await finger.moveBy(const Offset(20, 24));
+    await finger.up();
+    await progress(tester);
+    final moved = _bounds(map);
+    expect(moved['b']!.topLeft, original['b']!.topLeft + const Offset(20, 24));
+    expect(map.editHistoryState.undoDepth, 2);
+
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(_bounds(map), original);
+    expect(_selected(map), ['b']);
+    await map.undo();
+    expect(_selected(map), ['a']);
+    await map.redo();
+    expect(_selected(map), ['b']);
+    expect(_bounds(map), original);
+    await _submit(tester, map.redo());
+    expect(_bounds(map), moved);
+  });
+
   testWidgets('undoes and redoes drag, alignment and spacing in order', (
     tester,
   ) async {

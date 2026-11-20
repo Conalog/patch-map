@@ -95,7 +95,7 @@ class PatchMapView extends StatefulWidget {
   /// A released move's result. Success follows submission of the new position.
   final ValueChanged<PatchMapMoveResult>? onMoveResult;
 
-  /// Retained position edits per diagram. Zero disables history. Set at mount.
+  /// Retained editor actions per diagram. Zero disables history. Set at mount.
   final int editHistoryLimit;
   final ValueChanged<PatchMapEditHistoryState>? onEditHistoryChanged;
 
@@ -135,6 +135,7 @@ class _PatchMapViewState extends State<PatchMapView>
       return id;
     },
     isCommitPending: () => session.editInFlight,
+    recordSelection: session.recordSelection,
     commit: session.move,
     notify: (result) {
       if (!_disposed) session.notify(() => widget.onMoveResult?.call(result));
@@ -821,7 +822,8 @@ class _PatchMapViewState extends State<PatchMapView>
     if (!session.commandsAllowed ||
         !session.active ||
         phase != PatchMapPhase.ready ||
-        geometry == null) {
+        geometry == null ||
+        (session.hasEditHistory && _editor.isDragging)) {
       return Future.value(
         PatchMapMoveResult(
           PatchMapResult(
@@ -852,8 +854,8 @@ class _PatchMapViewState extends State<PatchMapView>
   Future<PatchMapMoveResult> replayEdit({required bool redo}) =>
       session.replayEdit(
         redo: redo,
+        gestureInProgress: _editor.isDragging,
         canMove: (id) {
-          if (_editor.isDragging) return false;
           final snapshot = input.currentGeometry();
           final slot = snapshot?.topology.slots[id];
           return slot != null && EditPlacement.capture(snapshot!, slot) != null;

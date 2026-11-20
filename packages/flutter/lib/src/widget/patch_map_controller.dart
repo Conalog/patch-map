@@ -81,12 +81,12 @@ final class PatchMapController {
   PatchMapEditHistoryState get editHistoryState =>
       _binding?.editHistoryState ?? emptyEditHistoryState;
 
-  /// Restore a completed edit and return its restored positions after submission.
+  /// Restore the previous editor action. Position results follow submission.
   Future<PatchMapMoveResult> undo() =>
       _binding?.replayEdit(redo: false) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));
 
-  /// Reapply the next edit and return its restored positions after submission.
+  /// Reapply the next editor action. Position results follow submission.
   Future<PatchMapMoveResult> redo() =>
       _binding?.replayEdit(redo: true) ??
       Future.value(PatchMapMoveResult(_denial(), const {}));

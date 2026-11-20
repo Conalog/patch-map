@@ -57,6 +57,29 @@ void main() {
     return harness;
   }
 
+  test('replays selection without a dataset publication', () async {
+    final h = make(editHistoryLimit: 50);
+    await h.ready();
+    final publications = h.backend.published.length;
+    expect(h.session.recordSelection(['a'], ['b']), isTrue);
+    expect(h.session.recordSelection(['a', 'b'], ['b', 'a']), isFalse);
+    final restored = <List<String>>[];
+    for (final redo in [false, true]) {
+      final result = await h.session.replayEdit(
+        redo: redo,
+        canMove: (_) => fail('selection history does not move objects'),
+        restoreSelection: restored.add,
+      );
+      expect(result.result.outcome, PatchMapOutcome.applied);
+      expect(result.positions, isEmpty);
+    }
+    expect(restored, [
+      ['a'],
+      ['b'],
+    ]);
+    expect(h.backend.published.length, publications);
+  });
+
   test(
     'keeps one edit and completion across suspension before paint',
     () async {

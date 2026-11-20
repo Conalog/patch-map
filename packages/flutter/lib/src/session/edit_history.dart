@@ -6,7 +6,7 @@ import '../api/update.dart';
 import '../geometry/affine.dart' show localTranslation;
 import '../presentation/record_delta.dart';
 
-/// One bounded history for committed position edits in a diagram generation.
+/// One bounded history for committed edits and editor selections.
 final class EditHistory {
   EditHistory(this.limit);
 
@@ -26,7 +26,7 @@ final class EditHistory {
     );
   }
 
-  void record(
+  void recordPositions(
     Map<PatchMapTarget, RecordDelta> changes,
     Iterable<String> Function()? selection,
   ) {
@@ -38,10 +38,21 @@ final class EditHistory {
     }
     if (positions.isEmpty) return;
 
-    final entry = EditHistoryEntry._(
-      positions,
-      selection?.call().toList() ?? const [],
-    );
+    final selected = selection?.call().toList() ?? const <String>[];
+    _append(EditHistoryEntry._(positions, selected, selected));
+  }
+
+  bool recordSelection(Iterable<String> before, Iterable<String> after) {
+    final previous = before.toSet();
+    final next = after.toSet();
+    if (previous.length == next.length && previous.containsAll(next)) {
+      return false;
+    }
+    _append(EditHistoryEntry._(const {}, previous.toList(), next.toList()));
+    return true;
+  }
+
+  void _append(EditHistoryEntry entry) {
     _entries.replaceRange(_cursor, _entries.length, [entry]);
     if (_entries.length > limit) _entries.removeAt(0);
     _cursor = _entries.length;
@@ -77,11 +88,19 @@ final class EditHistory {
 }
 
 final class EditHistoryEntry {
-  EditHistoryEntry._(this._positions, this.selection);
+  EditHistoryEntry._(
+    this._positions,
+    this._beforeSelection,
+    this._afterSelection,
+  );
 
   final Map<String, _PositionChange> _positions;
-  final List<String> selection;
+  final List<String> _beforeSelection, _afterSelection;
+  bool get hasPositions => _positions.isNotEmpty;
   Iterable<String> get ids => _positions.keys;
+
+  List<String> selection({required bool redo}) =>
+      redo ? _afterSelection : _beforeSelection;
 
   bool matches(
     bool redo,

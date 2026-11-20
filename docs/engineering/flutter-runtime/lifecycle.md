@@ -27,11 +27,13 @@ or paint failure stops that generation and settles all outstanding requests with
 the whole-map failure. Ordinary updates cannot restart it; only a new accepted
 replacement starts recovery.
 
-The optional position history belongs to the accepted generation. The same
+The optional editor history belongs to the accepted generation. The same
 atomic drain commits edited coordinates, moves the history cursor, and restores
-selection on replay. Its entries retain IDs and local positions. Successful
+selection on a position replay. A completed selection can record its own
+before/after IDs. Replaying that entry advances the same cursor and applies the
+selection without publishing a new dataset revision. Successful
 external writes to a retained position axis clear both branches. Successful
-edit results and button availability are observed after the matching
+position results and their button availability are observed after the matching
 submission. If a published edit is waiting for a frame during inactivity, the
 retained scene and cursor resume together through the existing submission
 obligation.

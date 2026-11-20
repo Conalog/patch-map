@@ -377,7 +377,7 @@ in their parent coordinates. An already aligned selection returns `unchanged`.
 If the selection or a target's alignment geometry changes before publication,
 the command rejects with `MOVE_CONFLICT`. The selection and camera are retained.
 
-### Undo and redo position edits
+### Undo and redo editor actions
 
 ```dart
 PatchMapView(
@@ -393,15 +393,20 @@ final restored = await controller.undo();
 
 `editHistoryLimit` is a nonnegative per-attachment setting and defaults to
 zero. Each completed drag, alignment or distribution that changes positions
-adds one entry. A new entry drops the redo branch and capacity evicts the
-oldest entries. Selection-only gestures, previews, rejected edits and edits
-with unchanged positions leave history intact.
+adds one entry. Long-press selection, range selection on release, and clearing
+selection by double-tapping the empty canvas also add one entry when the
+selected IDs change. A hold that selects and then moves an object records the
+selection and movement in that order. Programmatic selection commands, cancelled
+selection previews and unchanged actions leave history intact. A new entry
+drops the redo branch and capacity evicts the oldest entries.
 
 `controller.editHistoryState` reports both depths, availability and whether a
 position edit or replay is in flight. `undo()` and `redo()` restore the saved
 local position axes and the still-selectable IDs from that edit. Related
 geometry updates with the same publication. Camera and other effective fields
-are retained. Success returns the restored positions after frame submission.
+are retained. A position replay returns the restored positions after frame
+submission. A selection replay advances history immediately, with no position
+changes, and repaints through the usual selection path.
 An empty branch returns `unchanged`; a conflict or busy session rejects without
 advancing history. A target that became immovable can be retried after the
 restriction is lifted.

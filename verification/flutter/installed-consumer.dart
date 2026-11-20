@@ -140,7 +140,13 @@ void main() {
     final controller = PatchMapController();
     final moves = <PatchMapMoveResult>[];
     await tester.pumpWidget(
-      _host(controller, phases: [], failures: [], moveResult: moves.add),
+      _host(
+        controller,
+        phases: [],
+        failures: [],
+        moveResult: moves.add,
+        editHistoryLimit: 50,
+      ),
     );
     final drawn = await _submitted(
       tester,
@@ -168,6 +174,15 @@ void main() {
     );
     expect(controller.getGeometry('target')!.origin, move.positions['target']);
     expect(controller.camera, camera);
+    expect(controller.editHistoryState.undoDepth, 2);
+    final undoMove = controller.undo();
+    await _progress(tester);
+    expect((await undoMove).positions, {'target': before});
+    expect(controller.selected.single.id, 'target');
+    expect((await controller.undo()).positions, isEmpty);
+    expect(controller.selected, isEmpty);
+    expect((await controller.redo()).result.outcome, PatchMapOutcome.applied);
+    expect(controller.selected.single.id, 'target');
   });
 
   test('installed bundled SVG and native font load', () async {
