@@ -33,13 +33,13 @@ replay advances the cursor and restores IDs without a dataset revision.
 External writes to retained position axes clear both branches. During inactivity,
 the published cursor and scene retain their common submission obligation.
 
-Validate structural inputs at admission. Process earlier values before rebuilding
-topology and spatial membership with retained geometry and resources. A queued
-edit separates earlier and later value batches, including across suspension.
-History stores changed fragments and selection IDs. Relation replay checks
-edited fields and unlocked ancestry. Writes to targets under structural change are rejected.
-Removal discards live and presentation addresses. Failure before publication
-preserves the scene, selection and history cursor.
+Validate structural inputs at admission. Earlier value batches run before the
+edit and later batches after it, including across suspension. In-place relation
+edits retain topology and paint order. Link changes update the edited geometry
+and reverse endpoint memberships. History stores changed fragments and selection
+IDs. Replay checks edited fields and unlocked ancestors. Structural edits reject
+competing writes and discard live and presentation values for removed targets.
+Failure before publication preserves the scene, selection and history cursor.
 
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.

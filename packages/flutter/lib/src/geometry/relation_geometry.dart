@@ -409,6 +409,61 @@ final class RelationDependencies {
   Set<String> directIdsFor(String endpointId) =>
       _direct[endpointId] ?? const {};
 
+  RelationDependencies replaceLinks(String relation, List before, List after) {
+    Set<String> endpoints(List links) => {
+      for (final link in links.cast<Map<String, Object?>>()) ...[
+        link['source']! as String,
+        link['target']! as String,
+      ],
+    };
+    Set<String> ancestors(Set<String> ids) {
+      final result = <String>{};
+      for (final id in ids) {
+        var slot = _topology.slots[id];
+        while (slot != null) {
+          slot = _topology.parents[slot];
+          if (slot == null || !result.add(_topology.ids[slot])) break;
+        }
+      }
+      return result;
+    }
+
+    Map<String, Set<String>> replace(
+      Map<String, Set<String>> index,
+      Set<String> oldKeys,
+      Set<String> newKeys,
+    ) {
+      final removed = oldKeys.difference(newKeys);
+      final added = newKeys.difference(oldKeys);
+      if (removed.isEmpty && added.isEmpty) return index;
+      final next = Map<String, Set<String>>.of(index);
+      for (final key in removed) {
+        final members = index[key]!.where((member) => member != relation);
+        if (members.isEmpty) {
+          next.remove(key);
+        } else {
+          next[key] = Set.unmodifiable(members);
+        }
+      }
+      for (final key in added) {
+        final members = [...?index[key], relation]
+          ..sort((a, b) => _topology.slots[a]!.compareTo(_topology.slots[b]!));
+        next[key] = Set.unmodifiable(members);
+      }
+      return Map.unmodifiable(next);
+    }
+
+    final oldEndpoints = endpoints(before), newEndpoints = endpoints(after);
+    final direct = replace(_direct, oldEndpoints, newEndpoints);
+    if (identical(direct, _direct)) return this;
+    return RelationDependencies._(
+      _topology,
+      _relations,
+      direct,
+      replace(_descendant, ancestors(oldEndpoints), ancestors(newEndpoints)),
+    );
+  }
+
   Set<String> affectedIds(Iterable<String> changedIds) {
     final result = <String>{}, visited = <String>{};
     final pending = changedIds.toList();

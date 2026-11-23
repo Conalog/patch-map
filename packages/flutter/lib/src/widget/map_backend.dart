@@ -417,6 +417,16 @@ final class MapBackend extends SessionBackend {
     final previous = before as RenderPublication;
     final resources = previous.resources;
     return resources.text.withPreparation(() {
+      final relationId = relationValue?['id'] as String?;
+      if (relationId != null &&
+          previous.geometry.relationFor(relationId) != null) {
+        return _prepareRelationEdit(
+          previous,
+          document,
+          relationId,
+          relationValue!,
+        );
+      }
       final geometry = GeometrySnapshot.compile(
         document,
         resources.text.measure,
@@ -479,6 +489,43 @@ final class MapBackend extends SessionBackend {
         }
       }
     });
+  }
+
+  RenderPublication _prepareRelationEdit(
+    RenderPublication previous,
+    DatasetDocument document,
+    String id,
+    Map<String, Object?> value,
+  ) {
+    final change = previous.geometry.prepareRelationEdit(document, id, value);
+    final resources = previous.resources;
+    final owned = <int, DrawNode>{};
+    try {
+      for (final entry in change.changed.entries) {
+        owned[entry.key] = resources.compiler.compile(
+          entry.value,
+          initialLoad: false,
+          previous: previous.node(entry.key),
+          relation: change.snapshot.relationFor(entry.value.id),
+        )..retain();
+      }
+      return RenderPublication(
+        change.snapshot,
+        List.unmodifiable(_replacePages(previous, owned)),
+        resources,
+        previousPlan: previous.plan,
+        changed: List.unmodifiable({
+          if (!identical(previous, current)) ...previous.changed,
+          ...owned.keys,
+        }),
+        counts: previous.assetCounts,
+        targets: previous.assetTargets,
+      );
+    } finally {
+      for (final node in owned.values) {
+        node.release();
+      }
+    }
   }
 
   @override
