@@ -152,8 +152,10 @@ class DatasetReader {
     return candidate._targets[data['id']]!;
   }
 
-  List<Map<String, Object?>> readRelationLinks(Object? input) =>
-      _links(input, r'$.relation.links');
+  List<Map<String, Object?>> readRelationLinks(
+    Object? input, {
+    Map<(String, String), Map<String, Object?>>? interned,
+  }) => _links(input, r'$.relation.links', interned: interned);
 }
 
 const _elementBase = ['type', 'id', 'label', 'show', 'locked', 'attrs'];
@@ -590,7 +592,11 @@ String _orientation(Map<String, Object?> input, String path) => _enum(
   ['follow-item', 'upright'],
   'upright',
 );
-List<Map<String, Object?>> _links(Object? value, String path) {
+List<Map<String, Object?>> _links(
+  Object? value,
+  String path, {
+  Map<(String, String), Map<String, Object?>>? interned,
+}) {
   final values = array(value, path);
   final seen = <(String, String)>{};
   final result = <Map<String, Object?>>[];
@@ -601,7 +607,13 @@ List<Map<String, Object?>> _links(Object? value, String path) {
     final source = _endpoint(required(input, 'source', p), '$p.source');
     final target = _endpoint(required(input, 'target', p), '$p.target');
     if (seen.add((source, target))) {
-      result.add(frozen({'source': source, 'target': target}));
+      result.add(
+        interned?.putIfAbsent((
+              source,
+              target,
+            ), () => frozen({'source': source, 'target': target})) ??
+            frozen({'source': source, 'target': target}),
+      );
     }
   }
   return List.unmodifiable(result);

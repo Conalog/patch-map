@@ -775,6 +775,60 @@ void main() {
     expect(map.getValue(link)!['links'], retained);
   });
 
+  testWidgets('link strokes retain only the last changed steps atomically', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map, limit: 2));
+    await _draw(tester, map);
+    final original = map.getValue(link)!['links'];
+    expect(map.beginRelationEdit(link.id).outcome, PatchMapOutcome.applied);
+    final rejected = await _submit(
+      tester,
+      map.updateRelationLinkSteps(link.id, [
+        [
+          {'source': 'missing-panel', 'target': 'a'},
+        ],
+        selfLink,
+        firstLinks,
+        secondLinks,
+      ]),
+    );
+    expect(rejected.outcome, PatchMapOutcome.rejected);
+    expect(rejected.failures.single.code, 'MISSING_TARGET');
+    expect(map.getValue(link)!['links'], original);
+    expect(map.editHistoryState.undoDepth, 0);
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelationLinkSteps(link.id, [
+          selfLink,
+          firstLinks,
+          firstLinks,
+          secondLinks,
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.editHistoryState.undoDepth, 2);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], firstLinks);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], selfLink);
+    expect(map.editHistoryState.undoDepth, 0);
+    expect(
+      (await _submit(tester, map.redo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], firstLinks);
+  });
+
   testWidgets('a missing endpoint in any link step rejects the whole stroke', (
     tester,
   ) async {

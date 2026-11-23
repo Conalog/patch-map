@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:ui' show Offset;
 
 import '../api/edit_history.dart';
@@ -393,7 +394,7 @@ final class MapSession {
     final index = document.indexOf(relation);
     final changesLinks = links != null || linkSteps != null;
     final metadataKeys = metadata?.keys.toSet() ?? const <String>{};
-    final steps = <RelationEdit>[];
+    final steps = Queue<RelationEdit>();
     RelationVersion? after;
     if (!remove) {
       DatasetTarget edited(
@@ -428,8 +429,28 @@ final class MapSession {
 
       try {
         var previous = initial;
+        final internedLinks = <(String, String), Map<String, Object?>>{};
         for (final nextLinks in linkSteps ?? [links]) {
-          final candidate = edited(previous.authored.data, nextLinks);
+          // Links are the only changing field in a stroke. Normalize them once
+          // and share the immutable result between authored and effective data.
+          final normalized = linkSteps != null
+              ? _reader.readRelationLinks(nextLinks, interned: internedLinks)
+              : null;
+          final candidate = normalized == null
+              ? edited(previous.authored.data, nextLinks)
+              : DatasetTarget(
+                  id: previous.authored.id,
+                  type: previous.authored.type,
+                  parentId: previous.authored.parentId,
+                  row: previous.authored.row,
+                  column: previous.authored.column,
+                  active: previous.authored.active,
+                  components: previous.authored.components,
+                  data: Map.unmodifiable({
+                    ...previous.authored.data,
+                    'links': normalized,
+                  }),
+                );
           if (nextLinks != null) {
             _validateNewRelationLinks(
               document,
@@ -451,6 +472,11 @@ final class MapSession {
           final nextValue =
               identical(previous.effective, previous.authored.data)
               ? nextAuthored.data
+              : normalized != null
+              ? Map<String, Object?>.unmodifiable({
+                  ...previous.effective,
+                  'links': normalized,
+                })
               : edited(previous.effective, nextLinks).data;
           if (presentationEqual(previous.authored.data, nextAuthored.data) &&
               presentationEqual(previous.effective, nextValue)) {
@@ -458,6 +484,7 @@ final class MapSession {
           }
           final next = (authored: nextAuthored, effective: nextValue);
           if (linkSteps != null) {
+            if (steps.length == scope!.history.limit) steps.removeFirst();
             steps.add(
               RelationEdit(
                 previous,
