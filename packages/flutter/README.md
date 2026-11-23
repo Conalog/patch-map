@@ -446,6 +446,13 @@ during an open relation edit. It publishes only the final list in one
 transaction, while each changed list adds one local undo step. Invalid input
 rejects the whole batch. Use it to apply a completed paint stroke.
 
+Call `previewRelationLinks(id, links)` during a paint stroke to draw temporary
+links in the relation's usual position in paint order. The next frame shows
+the preview. The committed record, hit geometry and history remain intact.
+Call `clearRelationLinkPreview()` when cancelling the stroke or after the
+committed edit has submitted. Replacement, inactivity and detaching also
+clear the preview.
+
 `finishRelationEdit(id)` restores the selection from the start and records the
 applied link changes as one global action. Identical ordered links return
 `unchanged` and preserve both global history branches. With

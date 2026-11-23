@@ -127,6 +127,9 @@ class DatasetReader {
     final data = candidate._element(input, r'$.relation', parentId);
     return candidate._targets[data['id']]!;
   }
+
+  List<Map<String, Object?>> readRelationLinks(Object? input) =>
+      _links(input, r'$.relation.links');
 }
 
 const _elementBase = ['type', 'id', 'label', 'show', 'locked', 'attrs'];

@@ -19,6 +19,7 @@ import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../geometry/item_layout.dart';
 import '../geometry/layout.dart';
+import '../geometry/relation_geometry.dart';
 import '../geometry/spatial_index.dart';
 import '../presentation/field_operations.dart';
 import '../presentation/presentation_layers.dart';
@@ -30,6 +31,7 @@ import '../rendering/draw_objects.dart';
 import '../rendering/retained_update.dart';
 import '../rendering/render_publication.dart';
 import '../rendering/render_resources.dart';
+import '../rendering/relation_paint.dart';
 import '../rendering/selection_overlay.dart';
 import '../resources/asset_registry.dart';
 import '../resources/images/image_source.dart';
@@ -104,6 +106,7 @@ final class MapBackend extends SessionBackend {
   final _resources = <RenderResources>{};
   RenderPublication? current;
   PresentationOpacity? _presentation;
+  _RelationLinkPreview? _relationLinkPreview;
   int generation = 0, revision = 0, _epoch = 0;
   final _reportedFailures = <DrawAsset>{};
   bool _active = true, _closed = false, _pendingFit = false;
@@ -1001,6 +1004,107 @@ final class MapBackend extends SessionBackend {
     return _visible = slots;
   }
 
+  PatchMapResult previewRelationLinks(
+    String id,
+    List<Map<String, Object?>> links,
+  ) {
+    final geometry = current!.geometry;
+    final node = geometry[id];
+    if (node == null || node.target.type != 'relations' || node.locked) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: [
+          PatchMapFailure(
+            'INVALID_TARGET',
+            'An unlocked relation target is required',
+            target: PatchMapTarget(id),
+          ),
+        ],
+      );
+    }
+    try {
+      final admitted = const DatasetReader().readRelationLinks(links);
+      final preview = _RelationLinkPreview(id, admitted);
+      preview.projection = _projectRelationPreview(geometry, preview);
+      preview.revision = revision;
+      _relationLinkPreview = preview;
+      invalidate();
+      return PatchMapResult(PatchMapOutcome.applied);
+    } on DatasetException catch (error) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: [
+          PatchMapFailure(error.code, error.message, path: error.path),
+        ],
+      );
+    }
+  }
+
+  void clearRelationLinkPreview() {
+    if (_relationLinkPreview == null) return;
+    _relationLinkPreview = null;
+    if (_active) invalidate();
+  }
+
+  RelationPaintOverride? _projectRelationPreview(
+    GeometrySnapshot scene,
+    _RelationLinkPreview preview,
+  ) {
+    final node = scene[preview.id];
+    if (node == null || node.target.type != 'relations' || node.locked) {
+      return null;
+    }
+    final geometry = RelationGeometry.resolve(
+      node,
+      targetFor: (id) => scene[id],
+      endpointBounds: scene.endpointBoundsFor,
+      links: preview.links,
+    );
+    return (
+      slot: scene.topology.slots[preview.id]!,
+      drawing: RelationPaint(geometry, node.data, palette, node.opacity),
+    );
+  }
+
+  RelationPaintOverride? _currentRelationPreview(GeometrySnapshot scene) {
+    final preview = _relationLinkPreview;
+    if (preview == null) return null;
+    if (preview.revision != revision) {
+      try {
+        preview.projection = _projectRelationPreview(scene, preview);
+      } on DatasetException {
+        preview.projection = null;
+      }
+      preview.revision = revision;
+    }
+    return preview.projection;
+  }
+
+  List<int> _withVisibleRelationPreview(
+    List<int> visible,
+    RelationPaintOverride preview,
+  ) {
+    // The committed line may be empty or culled while the preview is visible.
+    final bounds = preview.drawing.geometry.paintBounds;
+    if (bounds == null || !boundsOverlap(bounds, camera.visibleWorldBounds)) {
+      return visible;
+    }
+    final rank = _ranks[preview.slot];
+    var first = 0, last = visible.length;
+    while (first < last) {
+      final middle = (first + last) ~/ 2;
+      if (_ranks[visible[middle]] < rank) {
+        first = middle + 1;
+      } else {
+        last = middle;
+      }
+    }
+    if (first < visible.length && visible[first] == preview.slot) {
+      return visible;
+    }
+    return [...visible.take(first), preview.slot, ...visible.skip(first)];
+  }
+
   void paint(
     Canvas canvas,
     double pixelRatio, {
@@ -1013,12 +1117,17 @@ final class MapBackend extends SessionBackend {
     canvas.save();
     canvas.transform(camera.paintMatrix);
     try {
+      final preview = _currentRelationPreview(publication.geometry);
+      final slots = visibleSlots();
       publication.plan.paint(
         canvas,
-        visibleSlots: visibleSlots(),
+        visibleSlots: preview == null
+            ? slots
+            : _withVisibleRelationPreview(slots, preview),
         cameraRotation: camera.rotation,
         physicalScale: camera.scale * pixelRatio,
         barRectangle: transitions.isActive ? transitions.rectangle : null,
+        relationPreview: preview,
       );
       selectionOverlay.paint(
         canvas,
@@ -1105,6 +1214,7 @@ final class MapBackend extends SessionBackend {
     camera.discardChanges();
     _validatedUpdate = null;
     _validatedLayouts = null;
+    _relationLinkPreview = null;
     _epoch++;
     _wakeActivity();
     onReplacement();
@@ -1134,6 +1244,7 @@ final class MapBackend extends SessionBackend {
       resource.setActive(active);
     }
     if (!active) {
+      clearRelationLinkPreview();
       transitions.clear();
       camera.cancelRotation();
     }
@@ -1180,6 +1291,15 @@ final class MapBackend extends SessionBackend {
     selectionOverlay.dispose();
     retirement.close();
   }
+}
+
+final class _RelationLinkPreview {
+  _RelationLinkPreview(this.id, this.links);
+
+  final String id;
+  final List<Map<String, Object?>> links;
+  int revision = -1;
+  RelationPaintOverride? projection;
 }
 
 // Replaces only changed pages; borrowed node ownership stays with publications.

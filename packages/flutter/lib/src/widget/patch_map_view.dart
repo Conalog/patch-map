@@ -362,6 +362,7 @@ class _PatchMapViewState extends State<PatchMapView>
       _attachedController = widget.controller;
       input.endDoubleTapZoom();
       input.cancelEdit();
+      backend.clearRelationLinkPreview();
     }
     if (!presentationEqual(oldWidget.colors, widget.colors) ||
         !presentationEqual(oldWidget.symbols, widget.symbols)) {
@@ -927,6 +928,30 @@ class _PatchMapViewState extends State<PatchMapView>
     restoreSelection: _restoreHistorySelection,
     gestureInProgress: _editor.isDragging,
   );
+
+  @override
+  PatchMapResult previewRelationLinks(
+    String id,
+    List<Map<String, Object?>> links,
+  ) {
+    if (!_canStartInput || !session.commandsAllowed) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: const [
+          PatchMapFailure(
+            'NOT_READY',
+            'A submitted active diagram is required',
+          ),
+        ],
+      );
+    }
+    return backend.previewRelationLinks(id, links);
+  }
+
+  @override
+  void clearRelationLinkPreview() {
+    if (session.commandsAllowed) backend.clearRelationLinkPreview();
+  }
 
   @override
   PatchMapResult beginRelationEdit(String id) =>

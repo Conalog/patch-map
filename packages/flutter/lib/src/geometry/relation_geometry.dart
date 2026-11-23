@@ -63,6 +63,7 @@ final class RelationGeometry {
     TargetGeometry node, {
     required TargetGeometry? Function(String id) targetFor,
     required RelationEndpointBounds endpointBounds,
+    List<Map<String, Object?>>? links,
   }) {
     if (node.target.type != 'relations') {
       throw ArgumentError('expected relations target');
@@ -92,7 +93,8 @@ final class RelationGeometry {
       return endpointBounds(id);
     });
     for (final link
-        in (node.data['links']! as List).cast<Map<String, Object?>>()) {
+        in links ??
+            (node.data['links']! as List).cast<Map<String, Object?>>()) {
       final fromId = link['source']! as String,
           toId = link['target']! as String;
       final from = targetFor(fromId), to = targetFor(toId);

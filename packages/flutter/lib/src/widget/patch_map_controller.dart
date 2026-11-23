@@ -52,6 +52,16 @@ final class PatchMapController {
     List<List<Map<String, Object?>>> steps,
   ) => _binding?.editRelation(id, linkSteps: steps) ?? _detached();
 
+  /// Display transient links for an unlocked relation in the next map frame.
+  /// This leaves the committed record, hit geometry, and history intact.
+  PatchMapResult previewRelationLinks(
+    String id,
+    List<Map<String, Object?>> links,
+  ) => _binding?.previewRelationLinks(id, links) ?? _denial();
+
+  /// Restore the committed relation drawing.
+  void clearRelationLinkPreview() => _binding?.clearRelationLinkPreview();
+
   /// Remove a root or nested relation as one undoable edit.
   /// A matching last link edit can be merged so undo restores a linked relation.
   Future<PatchMapResult> removeRelation(
@@ -194,6 +204,11 @@ abstract class PatchMapBinding {
     bool mergeEmptyLinkEdit = false,
   });
   PatchMapResult beginRelationEdit(String id);
+  PatchMapResult previewRelationLinks(
+    String id,
+    List<Map<String, Object?>> links,
+  );
+  void clearRelationLinkPreview();
   Future<PatchMapResult> finishRelationEdit(
     String id, {
     required bool removeIfEmpty,
