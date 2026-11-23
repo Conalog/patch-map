@@ -513,12 +513,14 @@ final class MapSession {
     for (final (index, link) in links.indexed) {
       final source = link['source']! as String;
       final target = link['target']! as String;
-      final missing = !document.targets.containsKey(source)
-          ? 'source'
-          : !document.targets.containsKey(target)
-          ? 'target'
-          : null;
-      if (missing == null) continue;
+      final sourceNode = document.targets[source];
+      final targetNode = document.targets[target];
+      final invalid = switch ((sourceNode?.type, targetNode?.type)) {
+        (null || 'relations', _) => 'source',
+        (_, null || 'relations') => 'target',
+        _ => null,
+      };
+      if (invalid == null) continue;
       // Only consult the previous list when a legacy link may be carried forward.
       if (previous != null) {
         previousPairs ??= {
@@ -528,10 +530,14 @@ final class MapSession {
         };
         if (previousPairs.contains((source, target))) continue;
       }
+      final endpoint = invalid == 'source' ? sourceNode : targetNode;
+      final endpointId = link[invalid];
       throw DatasetException(
-        'MISSING_TARGET',
-        '${relation.id}.links[$index].$missing',
-        'Relation endpoint "${link[missing]}" does not exist',
+        endpoint == null ? 'MISSING_TARGET' : 'INVALID_TARGET',
+        '${relation.id}.links[$index].$invalid',
+        endpoint == null
+            ? 'Relation endpoint "$endpointId" does not exist'
+            : 'Relation "$endpointId" cannot be used as a link endpoint',
       );
     }
   }

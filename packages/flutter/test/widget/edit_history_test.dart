@@ -804,6 +804,84 @@ void main() {
     );
   });
 
+  testWidgets('relation endpoints are rejected only for new links', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    final other = _relation('other', 'a', 'b');
+    const legacy = {'source': 'a', 'target': 'other'};
+    final original = [...firstLinks, legacy];
+    expect(
+      (await _submit(
+        tester,
+        map.draw([
+          ..._scene.take(3),
+          other,
+          {'id': link.id, 'type': 'relations', 'links': original},
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    final before = map.editHistoryState;
+    const invalid = [
+      {'source': 'link', 'target': 'a'},
+    ];
+    final update = await _submit(
+      tester,
+      map.updateRelation(link.id, links: invalid),
+    );
+    expect(update.outcome, PatchMapOutcome.rejected);
+    expect(update.failures.single.code, 'INVALID_TARGET');
+    expect(update.failures.single.path, 'link.links[0].source');
+    final creation = await _submit(
+      tester,
+      map.beginRelationCreation(_relation(draft.id, 'a', 'other')),
+    );
+    expect(creation.outcome, PatchMapOutcome.rejected);
+    expect(creation.failures.single.code, 'INVALID_TARGET');
+    final addition = await _submit(
+      tester,
+      map.addObjects([
+        _relation('new', 'a', 'new-endpoint'),
+        _relation('new-endpoint', 'a', 'b'),
+      ]),
+    );
+    expect(addition.outcome, PatchMapOutcome.rejected);
+    expect(addition.failures.single.code, 'INVALID_TARGET');
+    expect(map.rootIds, ['a', 'b', 'c', 'other', 'link']);
+    expect(map.getValue(link)!['links'], original);
+    expect(map.editHistoryState, before);
+
+    expect(map.beginRelationEdit(link.id).outcome, PatchMapOutcome.applied);
+    final rejectedSteps = await _submit(
+      tester,
+      map.updateRelationLinkSteps(link.id, [invalid, secondLinks]),
+    );
+    expect(rejectedSteps.outcome, PatchMapOutcome.rejected);
+    expect(map.getValue(link)!['links'], original);
+    expect(map.editHistoryState.undoDepth, 0);
+
+    final retained = [legacy, ...secondLinks];
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelationLinkSteps(link.id, [retained, secondLinks]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], secondLinks);
+    expect(
+      (await map.finishRelationEdit(link.id)).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], original);
+  });
+
   testWidgets('new relations resolve endpoints against their addition batch', (
     tester,
   ) async {
