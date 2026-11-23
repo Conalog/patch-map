@@ -421,8 +421,9 @@ final class InputCoordinator {
     if (_disposed ||
         !_active ||
         !identical(_recognition, sample) ||
-        currentGeneration?.call() != generation)
+        currentGeneration?.call() != generation) {
       return;
+    }
     _emit(
       PatchMapInputEvent(
         kind: kind,
