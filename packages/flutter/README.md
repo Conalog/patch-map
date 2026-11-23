@@ -424,7 +424,9 @@ Use the same element schema as `draw`. The active, ready diagram admits an
 entire list of roots together, including their child, component, and grid-cell
 identities. Existing roots keep their effective values and camera. By default
 the added selectable roots become the selection. Pass `selectAdded: false`
-to retain the current selection. An edit in flight or a long-press gesture
+to retain the current selection. New relation links may reference existing
+targets or targets added by the same batch. A missing endpoint rejects the
+entire batch with `MISSING_TARGET`. An edit in flight or a long-press gesture
 rejects another addition with `EDIT_BUSY`. Empty input returns `unchanged`.
 Success follows the first matching frame submission. Image decode and download
 still use `onImageFailure` and asynchronous resource loading.
@@ -438,6 +440,10 @@ removes the relation and drops its ID from selection. Its endpoints remain in th
 diagram. These commands require an active, ready map and reject locked relations.
 Results follow submission. Undo and redo restore the changed relation record and
 selection. Replay rejects newer writes to edited fields or a newly locked relation.
+New links must reference existing targets. If either endpoint is missing, the
+edit is rejected with `MISSING_TARGET` before publication or history changes.
+`draw` still accepts existing diagrams with missing endpoints. An edit may retain
+or remove an existing link with a missing endpoint, and history can restore it.
 Pass `mergeEmptyLinkEdit: true` to `removeRelation` when finishing an edit that
 left a relation empty. If the preceding history entry removed its last link,
 one undo restores that relation with its prior links.
@@ -453,12 +459,13 @@ with `EDIT_BUSY`.
 `updateRelationLinkSteps(id, steps)` accepts ordered complete link lists
 during an open relation edit. It publishes only the final list in one
 transaction, while each changed list adds one local undo step. Invalid input
-rejects the whole batch. Use it to apply a completed paint stroke.
+in any step rejects the whole batch. Use it to apply a completed paint stroke.
 
 To add a relation interactively, call `beginRelationCreation(relation)` with
-an unlocked relation root, typically with an empty link list. The draft is
-available through the live document queries after submission. It uses the
-same local link history and preview commands. Finishing a draft with links
+an unlocked relation root, typically with an empty link list. Initial links
+must reference existing targets. The draft is available through the live
+document queries after submission and uses the same local link history and
+preview commands. Finishing a draft with links
 selects and records the new relation as one global addition. Global undo
 removes it and restores the selection from before creation. Finishing an empty
 draft or calling `cancelRelationCreation(id)` removes the draft after

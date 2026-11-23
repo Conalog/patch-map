@@ -711,6 +711,142 @@ void main() {
     );
   });
 
+  testWidgets('only existing links may retain a missing endpoint', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    const legacy = {'source': 'a', 'target': 'missing-panel'};
+    final original = [...firstLinks, legacy];
+    expect(
+      (await _submit(
+        tester,
+        map.draw([
+          ..._scene.take(3),
+          {'id': link.id, 'type': 'relations', 'links': original},
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], original);
+    map.select(['a'], recordHistory: true);
+    await _submit(tester, map.undo());
+    final history = map.editHistoryState;
+
+    final rejected = await _submit(
+      tester,
+      map.updateRelation(
+        link.id,
+        links: [
+          legacy,
+          {'source': 'b', 'target': 'missing-panel'},
+        ],
+        metadata: {'parent': 'b'},
+      ),
+    );
+    expect(rejected.outcome, PatchMapOutcome.rejected);
+    expect(rejected.failures.single.code, 'MISSING_TARGET');
+    expect(rejected.failures.single.message, contains('missing-panel'));
+    expect(map.getValue(link)!['links'], original);
+    expect(map.getValue(link)!['attrs'], isNull);
+    expect(map.editHistoryState, history);
+
+    final retained = [legacy, ...secondLinks];
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelation(link.id, links: retained),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], retained);
+    expect(
+      (await _submit(
+        tester,
+        map.updateRelation(link.id, links: secondLinks),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], secondLinks);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], retained);
+  });
+
+  testWidgets('a missing endpoint in any link step rejects the whole stroke', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    final original = map.getValue(link)!['links'];
+    expect(map.beginRelationEdit(link.id).outcome, PatchMapOutcome.applied);
+    final history = map.editHistoryState;
+    final rejected = await _submit(
+      tester,
+      map.updateRelationLinkSteps(link.id, [
+        selfLink,
+        [
+          {'source': 'missing-panel', 'target': 'a'},
+        ],
+        secondLinks,
+      ]),
+    );
+    expect(rejected.outcome, PatchMapOutcome.rejected);
+    expect(rejected.failures.single.code, 'MISSING_TARGET');
+    expect(map.getValue(link)!['links'], original);
+    expect(map.editHistoryState, history);
+    expect(
+      (await map.finishRelationEdit(link.id)).outcome,
+      PatchMapOutcome.unchanged,
+    );
+  });
+
+  testWidgets('new relations resolve endpoints against their addition batch', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    final rootIds = map.rootIds;
+    final history = map.editHistoryState;
+    final dangling = _relation(draft.id, 'a', 'panels.0.1');
+    final creation = await _submit(tester, map.beginRelationCreation(dangling));
+    expect(creation.outcome, PatchMapOutcome.rejected);
+    expect(creation.failures.single.code, 'MISSING_TARGET');
+
+    const panels = {
+      'id': 'panels',
+      'type': 'grid',
+      'cells': [
+        [1],
+      ],
+      'item': {'size': 20, 'components': []},
+    };
+    Map<String, Object?> group(Map<String, Object?> relation) => {
+      'id': 'group',
+      'type': 'group',
+      'children': [relation, panels],
+    };
+    final rejected = await _submit(tester, map.addObjects([group(dangling)]));
+    expect(rejected.outcome, PatchMapOutcome.rejected);
+    expect(rejected.failures.single.code, 'MISSING_TARGET');
+    expect(map.rootIds, rootIds);
+    expect(map.getValue(draft), isNull);
+    expect(map.editHistoryState, history);
+
+    final valid = _relation(draft.id, 'a', {'id': 'panels.0.0'});
+    expect(
+      (await _submit(tester, map.addObjects([group(valid)]))).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(draft)!['links'], [
+      {'source': 'a', 'target': 'panels.0.0'},
+    ]);
+  });
+
   testWidgets('allows link edits on a relation with legacy scalar metadata', (
     tester,
   ) async {

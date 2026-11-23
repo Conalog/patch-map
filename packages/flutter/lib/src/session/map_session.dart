@@ -308,6 +308,11 @@ final class MapSession {
       added = _reader.read(objects, rootOffset: document.roots.length);
       if (added.roots.isEmpty) return PatchMapResult(PatchMapOutcome.unchanged);
       candidate = document.append(added);
+      for (final target in added.targets.values) {
+        if (target.type == 'relations') {
+          _validateNewRelationLinks(candidate, target);
+        }
+      }
       backend.validateDocument(added);
     } catch (error) {
       if (!_expected(error)) rethrow;
@@ -417,6 +422,13 @@ final class MapSession {
         var previous = initial;
         for (final nextLinks in linkSteps ?? [links]) {
           final candidate = edited(previous.authored.data, nextLinks);
+          if (nextLinks != null) {
+            _validateNewRelationLinks(
+              document,
+              candidate,
+              previous: previous.authored,
+            );
+          }
           final original = scope?.before.authored;
           // Reuse the original target when returning to its links so older
           // global history entries can still match its identity.
@@ -489,6 +501,39 @@ final class MapSession {
         }
       },
     );
+  }
+
+  void _validateNewRelationLinks(
+    DatasetDocument document,
+    DatasetTarget relation, {
+    DatasetTarget? previous,
+  }) {
+    final links = relation.data['links']! as List<Map<String, Object?>>;
+    Set<(String, String)>? previousPairs;
+    for (final (index, link) in links.indexed) {
+      final source = link['source']! as String;
+      final target = link['target']! as String;
+      final missing = !document.targets.containsKey(source)
+          ? 'source'
+          : !document.targets.containsKey(target)
+          ? 'target'
+          : null;
+      if (missing == null) continue;
+      // Only consult the previous list when a legacy link may be carried forward.
+      if (previous != null) {
+        previousPairs ??= {
+          for (final link
+              in previous.data['links']! as List<Map<String, Object?>>)
+            (link['source']! as String, link['target']! as String),
+        };
+        if (previousPairs.contains((source, target))) continue;
+      }
+      throw DatasetException(
+        'MISSING_TARGET',
+        '${relation.id}.links[$index].$missing',
+        'Relation endpoint "${link[missing]}" does not exist',
+      );
+    }
   }
 
   PatchMapResult beginRelationEdit(
