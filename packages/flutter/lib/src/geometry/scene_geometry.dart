@@ -292,13 +292,7 @@ class _Builder {
         ).map((value) => value['id']! as String),
       );
     } else if (target.type == 'grid') {
-      final rows = data['cells']! as List;
-      for (var row = 0; row < rows.length; row++) {
-        for (var col = 0; col < (rows[row] as List).length; col++) {
-          final id = '${target.id}.$row.$col';
-          if (document.targets.containsKey(id)) childIds.add(id);
-        }
-      }
+      childIds.addAll(document.gridCellIds(target));
     }
     final result = sameTarget && editedRelation == null
         ? previous!

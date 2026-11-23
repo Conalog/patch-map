@@ -697,7 +697,7 @@ final class GeometryTopology {
               (value) => value['id']! as String,
             )
           : target.type == 'grid'
-          ? _gridChildren(document, target)
+          ? document.gridCellIds(target)
           : const <String>[];
       for (final child in childIds) {
         _children[slot].add(_ids.length);
@@ -743,19 +743,6 @@ final class GeometryTopology {
 
     visit(_roots);
     return List.unmodifiable(result);
-  }
-}
-
-Iterable<String> _gridChildren(
-  DatasetDocument document,
-  DatasetTarget grid,
-) sync* {
-  final rows = grid.data['cells']! as List;
-  for (var r = 0; r < rows.length; r++) {
-    for (var c = 0; c < (rows[r] as List).length; c++) {
-      final id = '${grid.id}.$r.$c';
-      if (document.targets.containsKey(id)) yield id;
-    }
   }
 }
 

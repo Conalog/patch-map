@@ -10,6 +10,34 @@ Future<void> submit(WidgetTester tester, Future<PatchMapResult> request) async {
 }
 
 void main() {
+  testWidgets('an independent ID matching an empty grid slot stays outside', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    await tester.pumpWidget(support.host(controller));
+    const grid = {
+      'type': 'grid',
+      'id': 'g',
+      'cells': [
+        [0, 1],
+      ],
+      'item': {'size': 20},
+    };
+    const independent = {
+      'type': 'rect',
+      'id': 'g.0.0',
+      'size': 20,
+      'attrs': {'x': 500},
+    };
+    await submit(tester, controller.draw([grid]));
+    final gridBounds = controller.getGeometry('g')!.bounds;
+    await submit(tester, controller.addObjects([independent]));
+    expect(controller.getGeometry('g')!.bounds, gridBounds);
+    expect(controller.getGeometry('g.0.0')!.origin, const Offset(500, 0));
+    await submit(tester, controller.draw([grid, independent]));
+    expect(controller.getGeometry('g')!.bounds, gridBounds);
+  });
+
   testWidgets('relation marker updates change paint bounds independently', (
     tester,
   ) async {

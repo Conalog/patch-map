@@ -18,6 +18,17 @@ class DatasetDocument {
   final List<Map<String, Object?>> roots;
   final Map<String, DatasetTarget> targets;
 
+  Iterable<String> gridCellIds(DatasetTarget grid) sync* {
+    final rows = grid.data['cells']! as List;
+    for (var row = 0; row < rows.length; row++) {
+      final cells = rows[row] as List;
+      for (var col = 0; col < cells.length; col++) {
+        final id = '${grid.id}.$row.$col';
+        if (targets[id]?.parentId == grid.id) yield id;
+      }
+    }
+  }
+
   DatasetDocument append(DatasetDocument added) {
     for (final id in added.targets.keys) {
       if (targets.containsKey(id)) {
