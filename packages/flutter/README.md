@@ -93,6 +93,7 @@ before publication. Fractional milliseconds retain microsecond rounding.
 | `getValue(target)` / `rootIds` | Immutable current effective record and authored root IDs in document order |
 | `addObjects(objects, selectAdded:)` | Append authored roots to the current diagram as one editor action |
 | `updateRelation(id, links:, metadata:)` / `removeRelation(id)` | Undoable edits for root and nested relations |
+| `beginRelationEdit(id)` / `finishRelationEdit(id, removeIfEmpty:)` | Live link editing with local undo and redo, committed as one editor action |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
 | `getSelectableRelationsFor(endpointId)` | Visible, unlocked relations with resolved geometry that directly link the endpoint in the published map |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
@@ -425,6 +426,22 @@ selection. Replay rejects newer writes to edited fields or a newly locked relati
 Pass `mergeEmptyLinkEdit: true` to `removeRelation` when finishing an edit that
 left a relation empty. If the preceding history entry removed its last link,
 one undo restores that relation with its prior links.
+
+For an interactive link editor, enable `editHistoryLimit` and call
+`beginRelationEdit(id)` before updating links. While the edit is open,
+`updateRelation(id, links: ...)` publishes each change as usual, and
+`undo()`, `redo()` and `editHistoryState` use the local history with the
+configured limit. Camera commands, presentation updates and unrecorded
+selection remain available. Other history-producing editor commands reject
+with `EDIT_BUSY`.
+
+`finishRelationEdit(id)` restores the selection from the start and records the
+applied link changes as one global action. Identical ordered links return
+`unchanged` and preserve both global history branches. With
+`removeIfEmpty: true`, finishing an empty relation removes it after publication.
+One global undo restores the relation and its original links. A rejected finish
+keeps the local history open for retry. An accepted dataset replacement clears
+the local edit along with global history.
 
 ### Undo and redo editor actions
 

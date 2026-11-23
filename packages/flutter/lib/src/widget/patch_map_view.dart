@@ -134,7 +134,7 @@ class _PatchMapViewState extends State<PatchMapView>
       });
       return id;
     },
-    isCommitPending: () => session.editInFlight,
+    isCommitPending: () => session.editInFlight || session.isEditingRelation,
     recordSelection: session.recordSelection,
     commit: session.move,
     notify: (result) {
@@ -822,7 +822,10 @@ class _PatchMapViewState extends State<PatchMapView>
       );
     }
     final trackSelection = recordHistory && session.hasEditHistory;
-    if (trackSelection && (session.editInFlight || _editor.isDragging)) {
+    if (trackSelection &&
+        (session.editInFlight ||
+            session.isEditingRelation ||
+            _editor.isDragging)) {
       return PatchMapResult(
         PatchMapOutcome.rejected,
         failures: const [
@@ -918,6 +921,21 @@ class _PatchMapViewState extends State<PatchMapView>
     mergeEmptyLinkEdit: mergeEmptyLinkEdit,
     restoreSelection: _restoreHistorySelection,
     gestureInProgress: _editor.isDragging,
+  );
+
+  @override
+  PatchMapResult beginRelationEdit(String id) =>
+      session.beginRelationEdit(id, gestureInProgress: _editor.isDragging);
+
+  @override
+  Future<PatchMapResult> finishRelationEdit(
+    String id, {
+    required bool removeIfEmpty,
+  }) => session.finishRelationEdit(
+    id,
+    removeIfEmpty: removeIfEmpty,
+    gestureInProgress: _editor.isDragging,
+    restoreSelection: _restoreHistorySelection,
   );
 
   @override

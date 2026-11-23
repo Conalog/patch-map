@@ -58,6 +58,21 @@ final class PatchMapController {
       ) ??
       _detached();
 
+  /// Open a local undo/redo history for live link edits to this relation.
+  /// Requires an enabled editor history and an editable relation.
+  PatchMapResult beginRelationEdit(String id) =>
+      _binding?.beginRelationEdit(id) ?? _denial();
+
+  /// Finish the local link edit as one editor action and restore the previous
+  /// selection. Unchanged links leave both global history branches intact.
+  /// When enabled, removing an empty relation is part of the same action.
+  Future<PatchMapResult> finishRelationEdit(
+    String id, {
+    bool removeIfEmpty = false,
+  }) =>
+      _binding?.finishRelationEdit(id, removeIfEmpty: removeIfEmpty) ??
+      _detached();
+
   /// Replace one captured alpha layer. Acceptance is synchronous; the next
   /// ordinary frame displays it. Authored/live values and selection stay intact.
   PatchMapPresentationResult setPresentation(
@@ -169,6 +184,11 @@ abstract class PatchMapBinding {
     Map<String, Object?>? metadata,
     bool remove = false,
     bool mergeEmptyLinkEdit = false,
+  });
+  PatchMapResult beginRelationEdit(String id);
+  Future<PatchMapResult> finishRelationEdit(
+    String id, {
+    required bool removeIfEmpty,
   });
   PatchMapPresentationResult setPresentation(
     String key,

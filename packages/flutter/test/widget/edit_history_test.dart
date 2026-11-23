@@ -112,6 +112,232 @@ Map<String, Object?> _relation(String id, Object source, Object target) => {
 };
 
 void main() {
+  const link = PatchMapTarget('link');
+  const firstLinks = [
+    {'source': 'b', 'target': 'c'},
+  ];
+  const secondLinks = [
+    {'source': 'a', 'target': 'c'},
+  ];
+
+  testWidgets('scopes live steps and commits the applied links as one edit', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    final history = <PatchMapEditHistoryState>[];
+    await tester.pumpWidget(_host(map, onHistory: history.add));
+    await _draw(tester, map);
+    final initialLinks = map.getValue(link)!['links'];
+    map.select(['link'], recordHistory: true);
+
+    expect(map.beginRelationEdit('link').outcome, PatchMapOutcome.applied);
+    expect((await map.undo()).result.outcome, PatchMapOutcome.unchanged);
+    expect((await map.redo()).result.outcome, PatchMapOutcome.unchanged);
+    expect(
+      map.select(['a'], recordHistory: true).failures.single.code,
+      'EDIT_BUSY',
+    );
+    expect(map.select(['a']).outcome, PatchMapOutcome.applied);
+    await _submit(tester, map.updateRelation('link', links: firstLinks));
+    await _submit(tester, map.updateRelation('link', links: secondLinks));
+    await _submit(tester, map.updateRelation('link', links: []));
+    expect(history.last.undoDepth, 3);
+    expect(map.getValue(link)!['links'], isEmpty);
+
+    await _submit(tester, map.undo());
+    expect(map.getValue(link)!['links'], secondLinks);
+    await _submit(tester, map.undo());
+    expect(map.getValue(link)!['links'], firstLinks);
+    await _submit(tester, map.redo());
+    expect(map.getValue(link)!['links'], secondLinks);
+    expect(history.last.redoDepth, 1);
+
+    expect(
+      (await map.finishRelationEdit('link')).outcome,
+      PatchMapOutcome.applied,
+    );
+    await tester.pump();
+    expect(history.last.undoDepth, 2);
+    expect(history.last.redoDepth, 0);
+    expect(_selected(map), ['link']);
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], initialLinks);
+    expect(_selected(map), ['link']);
+    expect((await map.undo()).result.outcome, PatchMapOutcome.applied);
+    expect(_selected(map), isEmpty);
+    await map.redo();
+    await _submit(tester, map.redo());
+    expect(map.getValue(link)!['links'], secondLinks);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('net-zero edits preserve both branches and relation identity', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map, limit: 2));
+    await _draw(tester, map);
+    await _submit(tester, map.updateRelation('link', links: firstLinks));
+    await _submit(tester, map.updateRelation('link', links: secondLinks));
+    await _submit(tester, map.undo());
+    final global = map.editHistoryState;
+    expect(global.undoDepth, 1);
+    expect(global.redoDepth, 1);
+
+    map.beginRelationEdit('link');
+    await _submit(tester, map.updateRelation('link', links: []));
+    await _submit(tester, map.updateRelation('link', links: secondLinks));
+    await _submit(tester, map.updateRelation('link', links: firstLinks));
+    expect(map.editHistoryState.undoDepth, 2);
+    expect(
+      (await map.finishRelationEdit('link')).outcome,
+      PatchMapOutcome.unchanged,
+    );
+    expect(map.editHistoryState, global);
+    expect(
+      (await _submit(tester, map.redo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], secondLinks);
+    await _submit(tester, map.undo());
+    expect(
+      (await _submit(tester, map.undo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link)!['links'], _scene.last['links']);
+  });
+
+  testWidgets('commits empty relation deletion with all original links', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map, limit: 2));
+    final originalLinks = [
+      {'source': 'a', 'target': 'b'},
+      {'source': 'b', 'target': 'c'},
+    ];
+    await _submit(
+      tester,
+      map.draw([
+        ..._scene.take(3),
+        {
+          'type': 'group',
+          'id': 'group',
+          'children': [
+            _rect('sibling', 0, 0),
+            {..._scene.last, 'links': originalLinks},
+          ],
+        },
+      ]),
+    );
+    map.select(['link']);
+    map.beginRelationEdit('link');
+    await _submit(tester, map.updateRelation('link', links: firstLinks));
+    await _submit(tester, map.updateRelation('link', links: secondLinks));
+    await _submit(tester, map.updateRelation('link', links: []));
+    expect(map.editHistoryState.undoDepth, 2);
+    await _submit(
+      tester,
+      map.updateValues([
+        const PatchMapUpdate(link, {'locked': true, 'label': 'live'}),
+      ]),
+    );
+    expect(
+      (await map.finishRelationEdit(
+        'link',
+        removeIfEmpty: true,
+      )).failures.single.code,
+      'LOCKED_TARGET',
+    );
+    expect(map.editHistoryState.undoDepth, 2);
+    expect(map.getValue(link)!['links'], isEmpty);
+    await _submit(
+      tester,
+      map.updateValues([
+        const PatchMapUpdate(link, {'locked': false}),
+      ]),
+    );
+    final completion = map.finishRelationEdit('link', removeIfEmpty: true);
+    expect(map.editHistoryState.isBusy, isTrue);
+    expect(
+      (await _submit(tester, completion)).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.getValue(link), isNull);
+    expect(map.editHistoryState.undoDepth, 1);
+    expect(_selected(map), isEmpty);
+
+    for (var repeat = 0; repeat < 2; repeat++) {
+      expect(
+        (await _submit(tester, map.undo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(link)!['links'], originalLinks);
+      expect(map.getValue(link)!['label'], 'live');
+      final children =
+          map.getValue(const PatchMapTarget('group'))!['children'] as List;
+      expect(children.map((child) => (child as Map)['id']), [
+        'sibling',
+        'link',
+      ]);
+      expect(_selected(map), ['link']);
+      expect(
+        (await _submit(tester, map.redo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(link), isNull);
+      expect(_selected(map), isEmpty);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('relation scope survives suspension and clears on replacement', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map, limit: 0));
+    await _draw(tester, map);
+    expect(
+      map.beginRelationEdit('link').failures.single.code,
+      'HISTORY_DISABLED',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+
+    expect(map.beginRelationEdit('link').outcome, PatchMapOutcome.applied);
+    expect(map.beginRelationEdit('link').failures.single.code, 'EDIT_BUSY');
+    expect(
+      (await map.removeRelation('link')).failures.single.code,
+      'EDIT_BUSY',
+    );
+    expect(
+      (await map.updateRelation(
+        'link',
+        metadata: {'parent': 'p'},
+      )).failures.single.code,
+      'EDIT_BUSY',
+    );
+    await _submit(tester, map.updateRelation('link', links: firstLinks));
+    await tester.pumpWidget(_host(map, active: false));
+    expect(map.editHistoryState.canUndo, isFalse);
+    await tester.pumpWidget(_host(map));
+    expect(map.editHistoryState.canUndo, isTrue);
+    expect((await map.draw('invalid')).outcome, PatchMapOutcome.rejected);
+    expect(map.editHistoryState.canUndo, isTrue);
+
+    await _draw(tester, map);
+    expect(map.editHistoryState.undoDepth, 0);
+    expect(
+      (await map.finishRelationEdit('link')).failures.single.code,
+      'INVALID_TARGET',
+    );
+    expect(map.beginRelationEdit('link').outcome, PatchMapOutcome.applied);
+  });
+
   testWidgets(
     'finishing an empty relation merges deletion with the last unlink',
     (tester) async {
