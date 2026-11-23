@@ -34,9 +34,10 @@ External writes to retained position axes clear both branches. During inactivity
 the published cursor and scene retain their common submission obligation.
 
 Validate structural inputs at admission. Process earlier values before rebuilding
-topology and spatial membership with retained geometry and resources. History
-stores changed fragments and selection IDs. Relation replay checks edited fields
-and unlocked ancestry. Writes to targets under structural change are rejected.
+topology and spatial membership with retained geometry and resources. A queued
+edit separates earlier and later value batches, including across suspension.
+History stores changed fragments and selection IDs. Relation replay checks
+edited fields and unlocked ancestry. Writes to targets under structural change are rejected.
 Removal discards live and presentation addresses. Failure before publication
 preserves the scene, selection and history cursor.
 

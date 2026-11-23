@@ -72,6 +72,8 @@ component update target: `PatchMapTarget('grid-1', componentId: 'number')` rejec
 the whole request with `MISSING_TARGET`.
 
 Updates retain omitted fields and use the schema's field-specific reset rules.
+Accepted value updates before an editor command run first. Updates accepted after
+the command run on the scene that results from the edit.
 Inputs are detached and validated atomically; preparation failures retain the
 whole previous item while independent items can succeed. The runtime composes
 waiting fields to their latest values. Result `outcome`, `failures`, `superseded`,

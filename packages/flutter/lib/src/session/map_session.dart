@@ -79,7 +79,7 @@ final class MapSession {
   Object? _work;
   bool _refresh = false;
   _Pending? _pending, _executing;
-  _Pending? _pendingEdit;
+  _Pending? _pendingBeforeEdit, _pendingEdit;
   _Submission? _submission;
   Completer<PatchMapResult>? _replacementResult;
   final _replacementFailures = <String, List<PatchMapFailure>>{};
@@ -225,6 +225,7 @@ final class MapSession {
           _phase == PatchMapPhase.ready &&
           _work == null &&
           _pending == null &&
+          _pendingEdit == null &&
           _executing == null &&
           _submission == null &&
           _submittedRevision == _revision &&
@@ -250,6 +251,7 @@ final class MapSession {
         _phase == PatchMapPhase.ready &&
         _work == null &&
         _pending == null &&
+        _pendingEdit == null &&
         _executing == null &&
         _submission == null &&
         _submittedRevision == _revision) {
@@ -876,7 +878,7 @@ final class MapSession {
       return Future.value(_rejected(error));
     }
     return _enqueueEdit(
-      _MovePublication(_pending, canPublish, didPublish, record),
+      _MovePublication(canPublish, didPublish, record),
       batch,
     );
   }
@@ -889,7 +891,6 @@ final class MapSession {
     required void Function() didPublish,
   }) => _enqueueEdit(
     _StructurePublication(
-      _pending,
       canPublish,
       didPublish,
       document,
@@ -903,11 +904,14 @@ final class MapSession {
     _EditPublication edit,
     PresentationBatch batch,
   ) {
-    final pending = _pendingEdit = _Pending()..edit = edit;
+    final pending = _Pending()..edit = edit;
     final result = pending.ledger.add(batch);
     if (batch.patches.isNotEmpty) _composePending(pending, batch);
+    // Keep later value updates from composing into the batch ahead of the edit.
+    _pendingBeforeEdit = _pending;
+    _pending = null;
+    _pendingEdit = _editInFlight = pending;
     _schedule();
-    _editInFlight = pending;
     _notifyEditHistory();
     return result.whenComplete(() {
       if (!identical(_editInFlight, pending)) return;
@@ -994,19 +998,19 @@ final class MapSession {
       _suspension++;
       _resumeWithoutAnimation = true;
     } else {
-      if (_submission != null && _pending != null) {
+      final old = _executing;
+      final newer = _nextValueBatch;
+      if (_submission != null && newer != null) {
         // A publication never submitted before suspension has no right to
-        // precede newer accepted values on the first resumed frame.
-        final old = _executing;
+        // precede newer values on the same side of an edit on resume.
         if (old != null) {
-          final newer = _pending!;
           old.ledger.absorb(newer.ledger);
           // Published successful fields already live in _values; failed fields
           // must not be replayed. Carry obligations, not the old value plan.
           old.plan = newer.plan;
           old.index = newer.index;
           old.rolledBack = newer.rolledBack;
-          _pending = old;
+          _nextValueBatch = old;
         }
         _executing = null;
         _submission = null;
@@ -1060,6 +1064,7 @@ final class MapSession {
     } else {
       final trace = stack ?? StackTrace.current;
       _pending?.ledger.failUnexpected(error, trace);
+      _pendingBeforeEdit?.ledger.failUnexpected(error, trace);
       _pendingEdit?.ledger.failUnexpected(error, trace);
       _executing?.ledger.failUnexpected(error, trace);
       final replacement = _replacementResult;
@@ -1067,6 +1072,7 @@ final class MapSession {
         replacement.completeError(error, trace);
       }
       _pending = null;
+      _pendingBeforeEdit = null;
       _pendingEdit = null;
       _executing = null;
       _submission = null;
@@ -1090,11 +1096,17 @@ final class MapSession {
     final executing = _submission == null && _executing?.edit == null
         ? _executing?.index[target]
         : null;
+    final beforeEdit = _pendingBeforeEdit?.index[target];
     final pending = _pending?.index[target];
-    if (executing == null && pending == null) return result;
+    if (executing == null && beforeEdit == null && pending == null) {
+      return result;
+    }
     final authored = authoredRecord(_document!, target);
     if (executing != null) {
       result = _resolver.resolvePatch(authored, result, executing);
+    }
+    if (beforeEdit != null) {
+      result = _resolver.resolvePatch(authored, result, beforeEdit);
     }
     if (pending != null) {
       result = _resolver.resolvePatch(authored, result, pending);
@@ -1207,6 +1219,17 @@ final class MapSession {
       _phase != PatchMapPhase.failed &&
       (_replacement || _pending != null || _pendingEdit != null || _refresh);
 
+  _Pending? get _nextValueBatch =>
+      _pendingEdit == null ? _pending : _pendingBeforeEdit;
+
+  set _nextValueBatch(_Pending? batch) {
+    if (_pendingEdit == null) {
+      _pending = batch;
+    } else {
+      _pendingBeforeEdit = batch;
+    }
+  }
+
   void _schedule() {
     if (_queued || !_canDrain) return;
     _queued = true;
@@ -1262,12 +1285,12 @@ final class MapSession {
           !initial &&
           !refresh &&
           queuedEdit != null &&
-          (_pending == null || !identical(queuedEdit.edit!.after, _pending));
-      var pending = _executing = takeEdit ? queuedEdit : _pending;
+          _pendingBeforeEdit == null;
+      var pending = _executing = takeEdit ? queuedEdit : _nextValueBatch;
       if (takeEdit) {
         _pendingEdit = null;
       } else {
-        _pending = null;
+        _nextValueBatch = null;
       }
       final edit = pending?.edit;
       final structure = edit is _StructurePublication ? edit : null;
@@ -1343,8 +1366,8 @@ final class MapSession {
           // released only now, after its actual completion.
           backend.retire(candidate);
           candidate = null;
-          final newer = _pending;
-          _pending = null;
+          final newer = _nextValueBatch;
+          _nextValueBatch = null;
           if (newer != null) {
             if (pending == null) {
               pending = newer;
@@ -1372,9 +1395,10 @@ final class MapSession {
         }
         if (failures.isNotEmpty) {
           _failedTargets.addAll(failures.keys);
-          final waiting = _pending;
-          if (waiting != null) {
-            (waiting.rolledBack ??= {}).addAll(failures.keys);
+          for (final waiting in [_pendingBeforeEdit, _pending]) {
+            if (waiting != null) {
+              (waiting.rolledBack ??= {}).addAll(failures.keys);
+            }
           }
         }
         _revision = nextRevision;
@@ -1486,6 +1510,7 @@ final class MapSession {
 
   void _interrupt(PatchMapInterruption reason, {PatchMapFailure? failure}) {
     _pending?.ledger.interrupt(reason, failure: failure);
+    _pendingBeforeEdit?.ledger.interrupt(reason, failure: failure);
     _pendingEdit?.ledger.interrupt(reason, failure: failure);
     _executing?.ledger.interrupt(reason, failure: failure);
     final replacement = _replacementResult;
@@ -1502,6 +1527,7 @@ final class MapSession {
       );
     }
     _pending = null;
+    _pendingBeforeEdit = null;
     _pendingEdit = null;
     _executing = null;
     _submission = null;
@@ -1551,25 +1577,18 @@ class _Pending {
 }
 
 sealed class _EditPublication {
-  const _EditPublication(this.after, this.canPublish, this.didPublish);
-  final _Pending? after;
+  const _EditPublication(this.canPublish, this.didPublish);
   final bool Function() canPublish;
   final void Function() didPublish;
 }
 
 final class _MovePublication extends _EditPublication {
-  const _MovePublication(
-    super.after,
-    super.canPublish,
-    super.didPublish,
-    this.record,
-  );
+  const _MovePublication(super.canPublish, super.didPublish, this.record);
   final bool record;
 }
 
 final class _StructurePublication extends _EditPublication {
   const _StructurePublication(
-    super.after,
     super.canPublish,
     super.didPublish,
     this.document,

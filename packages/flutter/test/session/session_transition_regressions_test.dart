@@ -93,6 +93,56 @@ Future<void> ready(MapSession s, Backend b) async {
 
 void main() {
   test(
+    'resume keeps value batches on their original side of an edit',
+    () async {
+      final backend = Backend();
+      final session = make(backend);
+      addTearDown(session.close);
+      await ready(session, backend);
+      final earlier = session.update(const [
+        PatchMapUpdate(target, {'text': '1'}),
+      ]);
+      final move = session.move(
+        const [
+          PatchMapUpdate(target, {
+            'attrs': {'x': 100},
+          }),
+        ],
+        () => true,
+        () {},
+      );
+      final later = session.update(const [
+        PatchMapUpdate(target, {'text': '2'}),
+      ]);
+
+      await flush();
+      final beforeMove = backend.stamp!;
+      expect(session.current(target)!['text'], '1');
+      session.setActive(false);
+      session.setActive(true);
+      await flush();
+      expect(backend.stamp, same(beforeMove));
+      session.didSubmit(beforeMove);
+      expect((await earlier).outcome, PatchMapOutcome.applied);
+
+      await flush();
+      final publishedMove = backend.stamp!;
+      expect(publishedMove.revision, greaterThan(beforeMove.revision));
+      expect(session.current(target)!['text'], '1');
+      expect(session.current(target)!['attrs'], containsPair('x', 100));
+      session.setActive(false);
+      session.setActive(true);
+      await flush();
+      expect(backend.stamp!.revision, greaterThan(publishedMove.revision));
+      expect(session.current(target)!['text'], '2');
+      expect(session.current(target)!['attrs'], containsPair('x', 100));
+      session.didSubmit(backend.stamp!);
+      expect((await move).outcome, PatchMapOutcome.applied);
+      expect((await later).outcome, PatchMapOutcome.applied);
+    },
+  );
+
+  test(
     'a failed move candidate leaves the submitted revision intact',
     () async {
       final backend = Backend();

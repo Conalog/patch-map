@@ -1427,6 +1427,41 @@ void main() {
     },
   );
 
+  for (final earlierPending in [false, true]) {
+    testWidgets(
+      'values after alignment stay ordered with an earlier batch: $earlierPending',
+      (tester) async {
+        final map = PatchMapController();
+        await tester.pumpWidget(_host(map));
+        await _draw(tester, map);
+        map.select(['a', 'b']);
+        final earlier = earlierPending
+            ? map.updateValues(const [
+                PatchMapUpdate(_b, {
+                  'attrs': {
+                    'metadata': {'note': 'first'},
+                  },
+                }),
+              ])
+            : null;
+        final align = map.alignSelection(PatchMapAlignment.left);
+        final later = map.updateValues(const [
+          PatchMapUpdate(_b, {
+            'attrs': {'x': 45},
+          }),
+        ]);
+        await progress(tester);
+        if (earlier != null) {
+          expect((await earlier).outcome, PatchMapOutcome.applied);
+        }
+        expect((await align).result.outcome, PatchMapOutcome.applied);
+        expect((await later).outcome, PatchMapOutcome.applied);
+        expect(map.getGeometry('b')!.origin.dx, 45);
+        expect(map.editHistoryState.undoDepth, 0);
+      },
+    );
+  }
+
   testWidgets('locked targets reject replay without advancing the cursor', (
     tester,
   ) async {
