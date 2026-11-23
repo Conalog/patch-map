@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.4](https://github.com/Conalog/patch-map/compare/dart-v1.0.0-alpha.3...dart-v1.0.0-alpha.4) (2026-11-23)
+
+
+### Added
+
+* add opt-in map editing to Flutter ([#285](https://github.com/Conalog/patch-map/issues/285)) ([9434d52](https://github.com/Conalog/patch-map/commit/9434d5276d17c9bc5ae67e0edd922d2084bf81ce))
+
 ## [1.0.0-alpha.3](https://github.com/Conalog/patch-map/compare/dart-v1.0.0-alpha.2...dart-v1.0.0-alpha.3) (2026-11-09)
 
 
