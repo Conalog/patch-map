@@ -391,6 +391,8 @@ class _PatchMapViewState extends State<PatchMapView>
   void _configureInput({bool doubleTapChanged = false}) {
     input.dragMode = widget.dragMode;
     input.paintDragRequiresTarget = _gestureOptions.paintDragRequiresTarget;
+    input.paintDragRequiresLongPress =
+        _gestureOptions.paintDragRequiresLongPress;
     input.configureDoubleTapZoom(_doubleTapZoomEnabled);
     final wasDeferred = _deferInput;
     _deferInput = true;

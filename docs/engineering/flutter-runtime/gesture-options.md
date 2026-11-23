@@ -30,8 +30,8 @@ It tracks until all pointers end; remaining fingers cannot rearm. Recognized hol
 Both gesture permissions default to true. `zoomEnabled` gates pinch, wheel and
 [one-finger zoom](double-tap-drag-zoom.md), and `rotationEnabled` gates two-finger rotation.
 Camera commands and translation remain available. Single-pointer `dragMode` owns
-pan/range/paint. With `paintDragRequiresTarget: true`, paint reports the original
-hit at `dragStart` and pans when the press missed all input-filtered targets.
+pan/range/paint. Paint reports the original hit at `dragStart`.
+`paintDragRequiresTarget` pans on a miss and `paintDragRequiresLongPress` before a hold.
 
 Pinch and rotation capture their permissions and thresholds at `onScaleStart`.
 A rebuild affects the next pinch or rotation. Wheel uses the current zoom

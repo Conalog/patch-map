@@ -281,8 +281,9 @@ does not emit a new callback. No domain fetching or business action is built in.
 
 In paint mode, `dragStart.target` identifies the eligible target at pointer
 down. Set `PatchMapGestureOptions(paintDragRequiresTarget: true)` to pan when
-the press starts outside an eligible target. Paint move/end events retain the
-objects crossed in encounter order.
+the press starts outside an eligible target. Set `paintDragRequiresLongPress`
+to pan when dragging before the long press is recognized. Holding still does
+not start a paint drag. Paint move/end events retain objects in encounter order.
 
 Set `PatchMapGestureOptions(doubleTapEnabled: false)` for tools that use each
 single tap without waiting for a possible double tap. This also disables

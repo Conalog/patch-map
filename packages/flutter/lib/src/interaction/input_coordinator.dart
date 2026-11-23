@@ -55,6 +55,7 @@ final class InputCoordinator {
   late final SelectionState selection;
   PatchMapDragMode dragMode = PatchMapDragMode.pan;
   bool paintDragRequiresTarget = false;
+  bool paintDragRequiresLongPress = false;
   bool _doubleTapZoomEnabled = false;
   final _pointers = <int>{};
   _Gesture? _gesture;
@@ -233,8 +234,8 @@ final class InputCoordinator {
 
   PatchMapDragMode _dragModeFor(_Gesture gesture) =>
       dragMode == PatchMapDragMode.paint &&
-          paintDragRequiresTarget &&
-          gesture.startTarget == null
+          (paintDragRequiresTarget && gesture.startTarget == null ||
+              paintDragRequiresLongPress && !gesture.holdRecognized)
       ? PatchMapDragMode.pan
       : dragMode;
 

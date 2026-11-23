@@ -11,6 +11,7 @@ final class PatchMapGestureOptions {
     this.doubleTapEnabled = true,
     this.doubleTapDragZoomEnabled = false,
     this.paintDragRequiresTarget = false,
+    this.paintDragRequiresLongPress = false,
     this.rotationEnabled = true,
     this.zoomThreshold = .02,
     this.zoomThresholdAfterRotation = .05,
@@ -33,6 +34,9 @@ final class PatchMapGestureOptions {
 
   /// In paint mode, a press outside an eligible target pans the map.
   final bool paintDragRequiresTarget;
+
+  /// In paint mode, drag pans until a long press has been recognized.
+  final bool paintDragRequiresLongPress;
 
   /// Enable two-finger rotation; does not gate `setCamera(rotation: ...)`.
   final bool rotationEnabled;
