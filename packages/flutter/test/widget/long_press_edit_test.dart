@@ -84,6 +84,74 @@ Future<int> _alphaAt(WidgetTester tester, Finder preview, Offset local) async {
 }
 
 void main() {
+  testWidgets('replacement in selection callback suppresses stale hold', (
+    tester,
+  ) async {
+    final map = PatchMapController(), events = <PatchMapInputEvent>[];
+    Future<PatchMapResult>? replacement;
+    await tester.pumpWidget(
+      _host(
+        map,
+        enabled: true,
+        onEvent: (event) {
+          events.add(event);
+          if (event.kind == PatchMapInputKind.selectionChange &&
+              event.objects.any((object) => object.id == 'a')) {
+            replacement = map.draw([_rect('replacement', 0, 0)]);
+          }
+        },
+      ),
+    );
+    await _draw(tester, map, [_rect('a', 0, 0)]);
+    events.clear();
+    final finger = await _hold(tester, map.toLocal(const Offset(10, 10))!);
+    await finger.up();
+    await support.progress(tester);
+    expect((await replacement!).outcome, PatchMapOutcome.applied);
+    expect(
+      events.where((event) => event.kind == PatchMapInputKind.longPress),
+      isEmpty,
+    );
+  });
+
+  testWidgets(
+    'replacement while clearing selection suppresses stale double tap',
+    (tester) async {
+      final map = PatchMapController(), events = <PatchMapInputEvent>[];
+      Future<PatchMapResult>? replacement;
+      var replaceOnClear = false;
+      await tester.pumpWidget(
+        _host(
+          map,
+          enabled: true,
+          onEvent: (event) {
+            events.add(event);
+            if (replaceOnClear &&
+                event.kind == PatchMapInputKind.selectionChange &&
+                event.objects.isEmpty) {
+              replaceOnClear = false;
+              replacement = map.draw([_rect('replacement', 0, 0)]);
+            }
+          },
+        ),
+      );
+      await _draw(tester, map, [_rect('a', 0, 0)]);
+      map.select(['a']);
+      events.clear();
+      replaceOnClear = true;
+      final empty = _topLeft(tester) + map.toLocal(const Offset(80, 80))!;
+      await tester.tapAt(empty);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tapAt(empty);
+      await support.progress(tester);
+      expect((await replacement!).outcome, PatchMapOutcome.applied);
+      expect(
+        events.where((event) => event.kind == PatchMapInputKind.doubleTap),
+        isEmpty,
+      );
+    },
+  );
+
   testWidgets('default and mid-press opt-in preserve regular hold behavior', (
     tester,
   ) async {

@@ -28,6 +28,7 @@ final class InputCoordinator {
     InputHitGeometryProvider? exactGeometry,
     this.dragSlop = kTouchSlop,
     this.claimDoubleTapZoom,
+    this.currentGeneration,
   }) : query = InputQuery(
          ports: InputQueryPorts(
            getSpatialCandidates: getSpatialCandidates,
@@ -51,6 +52,7 @@ final class InputCoordinator {
   final void Function() onNeedFrame, onNeedNotification;
   final double dragSlop;
   final bool Function(int pointer)? claimDoubleTapZoom;
+  final int Function()? currentGeneration;
   final InputQuery query;
   late final SelectionState selection;
   PatchMapDragMode dragMode = PatchMapDragMode.pan;
@@ -402,6 +404,7 @@ final class InputCoordinator {
     }
     final sample = _recognition;
     if (sample == null || sample.epoch != _epoch) return;
+    final generation = currentGeneration?.call();
     final gesture = _gesture;
     if (kind == PatchMapInputKind.longPress && gesture != null) {
       gesture
@@ -413,8 +416,13 @@ final class InputCoordinator {
       }
     } else if (kind == PatchMapInputKind.doubleTap && sample.editAllowed) {
       _edit?.clearIfEmpty(sample.position.local);
-      if (!identical(_recognition, sample)) return;
     }
+    // Selection callbacks can accept a replacement before its input reset runs.
+    if (_disposed ||
+        !_active ||
+        !identical(_recognition, sample) ||
+        currentGeneration?.call() != generation)
+      return;
     _emit(
       PatchMapInputEvent(
         kind: kind,

@@ -247,6 +247,7 @@ class _PatchMapViewState extends State<PatchMapView>
       onNeedFrame: frame.invalidate,
       onNeedNotification: frame.requestNotification,
       claimDoubleTapZoom: _gestureArena.claimZoom,
+      currentGeneration: () => session.generation,
       filter: (object) =>
           session.filter(() => widget.eventFilter?.call(object) ?? true),
     );
