@@ -12,6 +12,9 @@ Widget _host(
   required List<PatchMapPhase> phases,
   required List<PatchMapFailure> failures,
   ValueChanged<PatchMapCameraChange>? cameraChanged,
+  ValueChanged<PatchMapMoveResult>? moveResult,
+  int editHistoryLimit = 0,
+  ValueChanged<PatchMapEditHistoryState>? historyChanged,
   bool active = true,
   PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => MediaQuery(
@@ -41,6 +44,10 @@ Widget _host(
           onPhaseChanged: (phase, _) => phases.add(phase),
           onImageFailure: failures.addAll,
           onCameraChanged: cameraChanged,
+          longPressEditEnabled: moveResult != null,
+          onMoveResult: moveResult,
+          editHistoryLimit: editHistoryLimit,
+          onEditHistoryChanged: historyChanged,
         ),
       ),
     ),
@@ -56,11 +63,8 @@ Future<void> _progress(WidgetTester tester, [int frames = 8]) async {
   }
 }
 
-Future<PatchMapResult> _submitted(
-  WidgetTester tester,
-  Future<PatchMapResult> request,
-) async {
-  PatchMapResult? result;
+Future<T> _submitted<T>(WidgetTester tester, Future<T> request) async {
+  T? result;
   Object? failure;
   StackTrace? stack;
   request.then(
@@ -80,6 +84,150 @@ Future<PatchMapResult> _submitted(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('installed consumer aligns, undoes and redoes edits', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    final history = <PatchMapEditHistoryState>[];
+    await tester.pumpWidget(
+      _host(
+        controller,
+        phases: [],
+        failures: [],
+        editHistoryLimit: 50,
+        historyChanged: history.add,
+      ),
+    );
+    final drawn = await _submitted(
+      tester,
+      controller.draw([
+        {'type': 'rect', 'id': 'a', 'size': 20},
+        {
+          'type': 'rect',
+          'id': 'b',
+          'size': 10,
+          'attrs': {'x': 60, 'y': 40},
+        },
+        {
+          'type': 'relations',
+          'id': 'link',
+          'links': [
+            {'source': 'a', 'target': 'b'},
+          ],
+        },
+      ]),
+    );
+    expect(drawn.outcome, PatchMapOutcome.applied);
+    expect(controller.select(['a', 'b']).outcome, PatchMapOutcome.applied);
+    final alignment = controller.alignSelection(PatchMapAlignment.right);
+    await _progress(tester);
+    final moved = await alignment;
+    expect(moved.result.outcome, PatchMapOutcome.applied);
+    expect(moved.positions, {'a': const Offset(50, 0)});
+    expect(controller.getGeometry('a')!.bounds!.right, 70);
+    expect(controller.getGeometry('b')!.origin, const Offset(60, 40));
+    expect(history.last.canUndo, isTrue);
+    final undo = controller.undo();
+    await _progress(tester);
+    expect((await undo).positions, {'a': Offset.zero});
+    expect(controller.getGeometry('a')!.origin, Offset.zero);
+    expect(controller.editHistoryState.canRedo, isTrue);
+    final redo = controller.redo();
+    await _progress(tester);
+    expect((await redo).positions, moved.positions);
+    expect(controller.getGeometry('a')!.bounds!.right, 70);
+
+    final added = await _submitted(
+      tester,
+      controller.addObjects([
+        {'type': 'text', 'id': 'label', 'text': 'New label'},
+      ]),
+    );
+    expect(added.outcome, PatchMapOutcome.applied);
+    expect(controller.rootIds, ['a', 'b', 'link', 'label']);
+    expect(controller.selected.single.id, 'label');
+    final undoAdd = controller.undo();
+    await _progress(tester);
+    expect((await undoAdd).result.outcome, PatchMapOutcome.applied);
+    expect(controller.rootIds, ['a', 'b', 'link']);
+    expect(controller.selected.map((object) => object.id), ['a', 'b']);
+
+    final relation = controller.getSelectableRelationsFor('b').single;
+    expect(relation.id, 'link');
+    expect(
+      controller.select([relation.id], recordHistory: true).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(controller.selected.single.id, 'link');
+    expect((await controller.undo()).result.outcome, PatchMapOutcome.applied);
+    expect(controller.selected.map((object) => object.id), ['a', 'b']);
+
+    final changed = await _submitted(
+      tester,
+      controller.updateRelation('link', metadata: {'parent': 'b'}),
+    );
+    expect(changed.outcome, PatchMapOutcome.applied);
+    final data = controller.getValue(const PatchMapTarget('link'))!;
+    expect((data['attrs'] as Map)['metadata'], {'parent': 'b'});
+    final removed = await _submitted(tester, controller.removeRelation('link'));
+    expect(removed.outcome, PatchMapOutcome.applied);
+    expect(controller.getSelectableRelationsFor('b'), isEmpty);
+    final restored = await _submitted(tester, controller.undo());
+    expect(restored.result.outcome, PatchMapOutcome.applied);
+    expect(controller.getSelectableRelationsFor('b').single.id, 'link');
+  });
+
+  testWidgets('installed consumer opts into a submitted long-press move', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    final moves = <PatchMapMoveResult>[];
+    await tester.pumpWidget(
+      _host(
+        controller,
+        phases: [],
+        failures: [],
+        moveResult: moves.add,
+        editHistoryLimit: 50,
+      ),
+    );
+    final drawn = await _submitted(
+      tester,
+      controller.draw([
+        {'type': 'rect', 'id': 'target', 'size': 50, 'fill': 'red'},
+      ]),
+    );
+    expect(drawn.outcome, PatchMapOutcome.applied);
+    final start = tester.getCenter(find.byType(PatchMapView));
+    final before = controller.getGeometry('target')!.origin;
+    final camera = controller.camera!;
+    final hold = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 650));
+    expect(controller.selected.single.id, 'target');
+    await hold.moveBy(const Offset(40, 20));
+    await tester.pump();
+    expect(controller.getGeometry('target')!.origin, before);
+    await hold.up();
+    await _progress(tester);
+    final move = moves.single;
+    expect(move.result.outcome, PatchMapOutcome.applied);
+    expect(
+      (move.positions['target']! - Offset(40, 20) / camera.scale).distance,
+      lessThan(1e-9),
+    );
+    expect(controller.getGeometry('target')!.origin, move.positions['target']);
+    expect(controller.camera, camera);
+    expect(controller.editHistoryState.undoDepth, 2);
+    final undoMove = controller.undo();
+    await _progress(tester);
+    expect((await undoMove).positions, {'target': before});
+    expect(controller.selected.single.id, 'target');
+    expect((await controller.undo()).positions, isEmpty);
+    expect(controller.selected, isEmpty);
+    expect((await controller.redo()).result.outcome, PatchMapOutcome.applied);
+    expect(controller.selected.single.id, 'target');
+  });
+
   test('installed bundled SVG and native font load', () async {
     final picture = await vg.loadPicture(
       const SvgAssetLoader(

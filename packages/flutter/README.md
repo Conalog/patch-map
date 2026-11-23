@@ -72,6 +72,8 @@ component update target: `PatchMapTarget('grid-1', componentId: 'number')` rejec
 the whole request with `MISSING_TARGET`.
 
 Updates retain omitted fields and use the schema's field-specific reset rules.
+Accepted value updates before an editor command run first. Updates accepted after
+the command run on the scene that results from the edit.
 Inputs are detached and validated atomically; preparation failures retain the
 whole previous item while independent items can succeed. The runtime composes
 waiting fields to their latest values. Result `outcome`, `failures`, `superseded`,
@@ -90,8 +92,12 @@ before publication. Fractional milliseconds retain microsecond rounding.
 | --- | --- |
 | `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
 | `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
-| `getValue(target)` | Immutable current effective record, including current components for a published item; null for a missing target |
+| `getValue(target)` / `rootIds` | Immutable current effective record and authored root IDs in document order |
+| `addObjects(objects, selectAdded:)` | Append authored roots to the current diagram as one editor action |
+| `updateRelation(id, links:, metadata:)` / `removeRelation(id)` | Undoable edits for root and nested relations |
+| `beginRelationEdit(id)` / `finishRelationEdit(id, removeIfEmpty:)` | Live link editing with local undo and redo, committed as one editor action |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
+| `getSelectableRelationsFor(endpointId)` | Visible, unlocked relations with resolved geometry that directly link the endpoint in the published map |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
 | `setCamera(center:, scale:, rotation:)` | World center, logical scale, radians |
@@ -106,6 +112,10 @@ before publication. Fractional milliseconds retain microsecond rounding.
 components. It returns null for an unknown ID or a detached/empty/preparing/failed
 map. Inactive maps expose their last publication; queued updates are not included.
 Held results remain immutable after updates, replacement or removal.
+
+`getSelectableRelationsFor` accepts a concrete element or grid cell ID.
+Only links that name that exact ID count. The query returns an empty list
+when the published diagram has no matching relation.
 
 ```dart
 final geometry = controller.getGeometry('grid-1.0.0');
@@ -160,6 +170,15 @@ are skipped when choosing the marker positions. A zero-width stroke hides both
 markers. Set either marker to `none` to remove it. Markers extend the paint
 bounds used for culling and camera fit. Logical bounds and hit tests follow the
 underlying path and stroke.
+
+### Hide self-links
+
+Set `style.showSelfLinks: false` to omit the stroke, markers and hit area
+for links whose source and target are the same. The links remain in the
+dataset and endpoint lookup. If the relation only has suppressed links to
+visible endpoints, its logical selection bounds follow those endpoints.
+The default draws self-links as loops. The setting also applies to link
+previews and can be updated through `updateValues`.
 
 ## Presentation layers
 
@@ -271,6 +290,16 @@ callbacks. Move callbacks are coalesced per frame while intermediate path hits
 are retained. Interrupted drags have one end event with a reason; widget removal
 does not emit a new callback. No domain fetching or business action is built in.
 
+In paint mode, `dragStart.target` identifies the eligible target at pointer
+down. Set `PatchMapGestureOptions(paintDragRequiresTarget: true)` to pan when
+the press starts outside an eligible target. Set `paintDragRequiresLongPress`
+to pan when dragging before the long press is recognized. Holding still does
+not start a paint drag. Paint move/end events retain objects in encounter order.
+
+Set `PatchMapGestureOptions(doubleTapEnabled: false)` for tools that use each
+single tap without waiting for a possible double tap. This also disables
+double-tap drag zoom. Pinch, rotation and pan remain available.
+
 Configure selection decoration with `selectionStyle`; rebuilding the same widget
 with a new value updates existing selection without replacing data, moving the
 camera or emitting selection changes:
@@ -290,13 +319,225 @@ Defaults remain blue `#2f80ed`, 2 logical pixels, centered, fixed screen width,
 and `all` (individual envelopes plus an aggregate for multiple objects).
 Modes are `all`, `elementOnly`, `groupOnly`, `hidden`; hiding decoration preserves
 selection and hits. `strokeAlignment` supports `center`, `inside`, `outside`.
+Straight horizontal and vertical relations use their published stroke bounds
+for the selection outline.
 `strokeScale: PatchMapSelectionStrokeScale.viewport` shrinks width on zoom-out,
 clamped between `minStrokeWidth` (default 1) and `strokeWidth`. Both widths must
 be finite and positive, with minimum <= base even for fixed mode. Invalid initial
 settings reject attachment; invalid rebuild settings report a Flutter error and
 retain the last valid style. Inactive style changes display on resume. Styles
-persist across diagram replacement, while selection still resets. No editing
-handles or object-transform commands are added.
+persist across diagram replacement, while selection still resets.
+
+### Long-press editing
+
+Enable range selection and translation explicitly on a map that is in an
+editing workflow:
+
+```dart
+PatchMapView(
+  controller: controller,
+  longPressEditEnabled: editing,
+  onMoveResult: (move) {
+    if (move.result.outcome == PatchMapOutcome.applied) {
+      // Copy move.positions to the app's draft if it needs to persist the edit.
+    }
+  },
+);
+```
+
+The option defaults to `false`. Hold a selected object or an empty point
+inside the current selection bounds to move the selection together. The
+selection bounds follow the object's outline for a singleton and enclose all
+selected outlines on the world axes for a multi-selection. The drag uses these
+bounds in every selection display mode. A hold on another editable object
+selects it immediately. During a move, a translated outline previews the
+destination.
+Release applies the movement to the current diagram in one publication,
+including affected relation geometry. A hold on empty space outside the
+selection bounds starts a screen-aligned selection box. The box uses the
+selection style's color and logical-pixel stroke width, with a fill at 8% of
+the stroke opacity. Release after dragging to replace the selection with the
+editable objects that intersect the box. A double tap on empty space clears
+selection. The usual long-press duration and gesture thresholds still apply.
+
+The default target for a grid cell is its grid. For other hits, the target is
+the hit's own ID. Use the optional, judgment-only `editTargetResolver` to
+map a hit to a different element or return null to skip it. Point and range
+hits pass through `eventFilter` first. A selected ancestor subsumes selected
+descendants. Hidden and locked targets and relations cannot be moved. A
+container with a locked descendant rejects a group move. Direct selection
+can address containers while editing is enabled.
+
+Enabling applies from the next press. Disabling cancels any unreleased
+gesture or unpublished move and preserves previous completed edits.
+Multitouch, cancellation, a changing camera, deactivation, replacement, and
+removal can interrupt editing. Existing input events and drag modes apply when
+the option is off.
+
+`onMoveResult` receives the result of a released move. A successful result
+follows a submitted frame and contains the new effective `attrs.x/y` as offsets
+in each target's parent coordinates. A rejected move supplies failures without
+partially translating the selection. The app owns persistence. Moving objects
+does not alter their authored input, and a later `draw` uses its supplied data.
+
+### Align the selection
+
+```dart
+final move = await controller.alignSelection(PatchMapAlignment.left);
+```
+
+Choose `left`, `right`, `top`, `bottom`, `centerX`, or `centerY`. The command
+uses world-axis bounds. Edges align to the outermost selected edge on the
+chosen side. Centers align to the average of the selected centers on that axis.
+Grid bounds include every authored cell slot. Text without an authored size
+uses its measured layout bounds. Items, rectangles, grids, text and fixed-size
+images are eligible. Alignment requires at least two independent targets.
+Unsupported geometry, hidden or locked targets, and grids with a locked
+descendant reject the command.
+
+Pass `distributeHorizontally` or `distributeVertically` for three or more
+independent targets. Distribution orders them by their leading edge and
+equalizes edge-to-edge gaps along that world axis. It keeps the selection's
+current span when the objects fit. If the span is too short, it extends the
+trailing edge and places the objects with zero gaps.
+
+Call the command on an active, ready map. The command is available independently
+of long-press editing. It applies the positions atomically and returns a
+`PatchMapMoveResult` after submission. `positions` includes only moved targets,
+in their parent coordinates. An already aligned selection returns `unchanged`.
+If the selection or a target's alignment geometry changes before publication,
+the command rejects with `MOVE_CONFLICT`. The selection and camera are retained.
+
+### Add objects to a diagram
+
+```dart
+final result = await controller.addObjects([
+  {
+    'type': 'image',
+    'id': 'site-photo',
+    'source': 'https://example.com/photo.jpg',
+    'size': {'width': 180, 'height': 120},
+    'attrs': {'x': 80, 'y': 40},
+  },
+]);
+```
+
+Use the same element schema as `draw`. The active, ready diagram admits an
+entire list of roots together, including their child, component, and grid-cell
+identities. Generated element IDs avoid collisions with current targets and
+explicit IDs in the batch. Undo and redo reuse the IDs assigned at addition.
+Existing roots keep their effective values and camera. By default
+the added selectable roots become the selection. Pass `selectAdded: false`
+to retain the current selection. New relation links may reference existing
+targets or targets added by the same batch. An invalid endpoint rejects the
+entire batch. An edit in flight or a long-press gesture
+rejects another addition with `EDIT_BUSY`. Empty input returns `unchanged`.
+Success follows the first matching frame submission. Image decode and download
+still use `onImageFailure` and asynchronous resource loading.
+
+### Edit relations
+
+Call `updateRelation(id, links: ...)` to replace the links on a root or nested
+relation. Call `updateRelation(id, metadata: ...)` to merge top-level keys into
+`attrs.metadata`, or pass both arguments to record one edit. `removeRelation(id)`
+removes the relation and drops its ID from selection. Its endpoints remain in the
+diagram. These commands require an active, ready map and reject locked relations.
+Results follow submission. Undo and redo restore the changed relation record and
+selection. Replay rejects newer writes to edited fields or a newly locked relation.
+New links must reference existing non-relation targets. The edit rejects a
+missing endpoint with `MISSING_TARGET` and a relation endpoint with
+`INVALID_TARGET` before publication or history changes. `draw` still accepts
+existing diagrams with these endpoints. An edit may retain or remove an
+existing link with such an endpoint, and history can restore it.
+Pass `mergeEmptyLinkEdit: true` to `removeRelation` when finishing an edit that
+left a relation empty. If the preceding history entry removed its last link,
+one undo restores that relation with its prior links.
+
+For an interactive link editor, enable `editHistoryLimit` and call
+`beginRelationEdit(id)` before updating links. While the edit is open,
+`updateRelation(id, links: ...)` publishes each change as usual, and
+`undo()`, `redo()` and `editHistoryState` use the local history with the
+configured limit. Camera commands, presentation updates and unrecorded
+selection remain available. Other history-producing editor commands reject
+with `EDIT_BUSY`.
+
+`updateRelationLinkSteps(id, steps)` accepts ordered complete link lists
+during an open relation edit. It publishes only the final list in one
+transaction, while each changed list adds one local undo step. Invalid input
+in any step rejects the whole batch. Use it to apply a completed paint stroke.
+
+To add a relation interactively, call `beginRelationCreation(relation)` with
+an unlocked relation root, typically with an empty link list. Initial links
+must reference existing non-relation targets. The draft is available through the live
+document queries after submission and uses the same local link history and
+preview commands. Finishing a draft with links
+selects and records the new relation as one global addition. Global undo
+removes it and restores the selection from before creation. Finishing an empty
+draft or calling `cancelRelationCreation(id)` removes the draft after
+submission, restores that selection, and preserves both global history
+branches. Finish or cancel before exporting edited data.
+
+Call `previewRelationLinks(id, links)` during a paint stroke to draw temporary
+links in the relation's usual position in paint order. The next frame shows
+the preview. The committed record, hit geometry and history remain intact.
+Call `clearRelationLinkPreview()` when cancelling the stroke or after the
+committed edit has submitted. Replacement, inactivity and detaching also
+clear the preview.
+
+`finishRelationEdit(id)` restores the selection from the start and records the
+applied link changes as one global action. Identical ordered links return
+`unchanged` and preserve both global history branches. With
+`removeIfEmpty: true`, finishing an empty relation removes it after publication.
+One global undo restores the relation and its original links. A rejected finish
+keeps the local history open for retry. An accepted dataset replacement clears
+the local edit along with global history.
+
+### Undo and redo editor actions
+
+```dart
+PatchMapView(
+  controller: controller,
+  longPressEditEnabled: true,
+  editHistoryLimit: 50,
+  onEditHistoryChanged: (state) {
+    // Use state.canUndo and state.canRedo to enable the editor controls.
+  },
+);
+final restored = await controller.undo();
+```
+
+`editHistoryLimit` is a nonnegative per-attachment setting and defaults to
+zero. Each completed drag, alignment or distribution that changes positions
+adds one entry. Long-press selection, range selection on release, and clearing
+selection by double-tapping the empty canvas also add one entry when the
+selected IDs change. A hold that selects and then moves an object records the
+selection and movement in that order. Hosts can record a selection they handle
+with `select(ids, recordHistory: true)`. By default, programmatic selection
+commands leave history intact, as do cancelled previews and unchanged actions.
+Adding roots records the whole batch and its selection in one entry. Undo
+removes the added roots and restores the previous selection. Redo restores the original records,
+identities and selection. A new entry drops the redo branch and capacity evicts
+the oldest entries.
+
+`controller.editHistoryState` reports both depths, availability and whether a
+scene edit or replay is in flight. The busy flag and its change notifications
+also work with a zero history limit. `undo()` and `redo()` restore the saved
+local position axes and the still-selectable IDs from that edit. Related
+geometry updates with the same publication. Camera and other effective fields
+are retained. A position replay returns the restored positions after frame
+submission. An addition replay completes after submission and returns an empty
+position map. A selection replay advances history immediately and repaints
+through the usual selection path.
+An empty branch returns `unchanged`; a conflict or busy session rejects without
+advancing history. A target that became immovable can be retried after the
+restriction is lifted.
+
+An accepted replacement or widget removal clears the history. A rejected
+replacement and temporary inactivity preserve it. A successful
+`updateValues()` that changes an axis stored for the same object clears both
+branches. Ordinary monitored values, changes to independent axes, and
+keyed presentation layers preserve history. Draft persistence belongs to the
+host.
 
 ## Lifetime and callbacks
 
@@ -327,7 +568,9 @@ match authored colors. It does not resolve theme tokens and throws
 The runtime covers item, grid, group, relations, image, text, rect and the four
 item components (background, bar, icon, text). It retains scene geometry and
 uses CustomPainter, shared text/SVG resources, and internal bar optimizations.
-Editor, PNG export and item screen-reader support are excluded from first release.
+Flutter editing covers opt-in range selection, translation, alignment, and
+adding new roots. PNG export and
+item screen-reader support are outside the current scope.
 Advanced text effects and full platform equivalence are not qualified by synthetic tests.
 
 The example covers 10,000 regular/varied panels, number/bar/mixed updates and navigation; its README documents profile commands. Checkpoints do not establish WebView equivalence.

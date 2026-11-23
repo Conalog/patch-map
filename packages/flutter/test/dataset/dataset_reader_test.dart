@@ -131,6 +131,57 @@ void main() {
   );
 
   test(
+    'addition reserves explicit IDs for generated descendants and cells',
+    () {
+      const existingCellId = r'@element:$[1].0.0';
+      const authoredCellId = r'@element:$[1]#1.0.0';
+      const authoredGroupId = r'@element:$[2]';
+      const authoredChildId = r'@element:$[2].children[0]';
+      final current = reader.read([item(id: existingCellId)]);
+      final added = reader.readForAppend([
+        {
+          'type': 'grid',
+          'cells': [
+            [1],
+          ],
+          'item': {'size': 20},
+        },
+        {
+          'type': 'group',
+          'children': [item()],
+        },
+        item(id: authoredCellId),
+        item(id: authoredGroupId),
+        item(id: authoredChildId),
+      ], current);
+      final combined = current.append(added);
+      const gridId = r'@element:$[1]#2';
+      const groupId = r'@element:$[2]#1';
+      const childId = r'@element:$[2].children[0]#1';
+      expect(combined.roots.map((root) => root['id']), [
+        existingCellId,
+        gridId,
+        groupId,
+        authoredCellId,
+        authoredGroupId,
+        authoredChildId,
+      ]);
+      expect(combined.targets['$gridId.0.0']?.parentId, gridId);
+      expect(combined.targets[childId]?.parentId, groupId);
+      expect(
+        combined.targets[existingCellId],
+        same(current.targets[existingCellId]),
+      );
+      expect(
+        () => current.append(
+          reader.readForAppend([item(id: existingCellId)], current),
+        ),
+        throwsA(diagnostic('DUPLICATE_ID')),
+      );
+    },
+  );
+
+  test(
     'rejects global generated/grid ids and owner-local component collisions',
     () {
       expect(

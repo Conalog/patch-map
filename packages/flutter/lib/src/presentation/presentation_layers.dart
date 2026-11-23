@@ -30,6 +30,45 @@ final class PresentationLayers {
   int get layerCount => _layers.length;
   PresentationOpacity? get opacity => _opacity;
 
+  /// Discard adjacency for the old document and reconcile changed membership.
+  /// Removed explicit addresses cannot attach to a later reuse of their IDs.
+  void documentChanged(
+    DatasetDocument document, {
+    Set<String>? removed,
+    DatasetTarget? restoredRelation,
+  }) {
+    _index = null;
+    if (removed != null) {
+      for (final layer in _layers.values) {
+        layer.scope.removeWhere((target) => removed.contains(target.id));
+        layer.matched.removeWhere((target) => removed.contains(target.id));
+        layer.factors.removeWhere((target, _) => removed.contains(target.id));
+      }
+    }
+    if (restoredRelation != null) {
+      final address = PatchMapTarget(restoredRelation.id);
+      final ancestors = <PatchMapTarget>{address};
+      var parentId = restoredRelation.parentId;
+      while (parentId != null) {
+        final parent = document.targets[parentId];
+        if (parent == null) break;
+        ancestors.add(PatchMapTarget(parent.id));
+        parentId = parent.parentId;
+      }
+      for (final layer in _layers.values) {
+        final inScope = ancestors.any(layer.scope.contains);
+        final matched = ancestors.any(layer.matched.contains);
+        final factor = matched ? layer.matchedAlpha : layer.unmatchedAlpha;
+        if (inScope && factor != 1) {
+          layer.factors[address] = factor;
+        } else {
+          layer.factors.remove(address);
+        }
+      }
+    }
+    if (removed != null || restoredRelation != null) _compose();
+  }
+
   PatchMapPresentationResult set(
     String key,
     PatchMapPresentationLayer layer,

@@ -4,6 +4,8 @@ import 'dart:ui';
 import '../dataset/colors.dart';
 import '../geometry/relation_geometry.dart';
 
+typedef RelationPaintOverride = ({int slot, RelationPaint drawing});
+
 /// Retained resource-free local paths and resolved solid color. Paint in normal
 /// sibling order; this owner neither reparents relations nor scans endpoints.
 final class RelationPaint {

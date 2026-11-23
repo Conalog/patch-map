@@ -7,20 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'patch_map_view_test.dart' as support;
 
-Future<int> bluePixels(WidgetTester tester) =>
-    coloredPixels(tester, const ui.Color(0xff2f80ed));
+Future<int> bluePixels(WidgetTester tester, {Finder? boundary}) =>
+    coloredPixels(tester, const ui.Color(0xff2f80ed), boundary: boundary);
 
-Future<int> coloredPixels(WidgetTester tester, ui.Color color) async {
-  final boundary = tester.renderObject<RenderRepaintBoundary>(
-    find
-        .descendant(
-          of: find.byType(PatchMapView),
-          matching: find.byType(RepaintBoundary),
-        )
-        .first,
+Future<int> coloredPixels(
+  WidgetTester tester,
+  ui.Color color, {
+  Finder? boundary,
+}) async {
+  final renderBoundary = tester.renderObject<RenderRepaintBoundary>(
+    boundary ??
+        find
+            .descendant(
+              of: find.byType(PatchMapView),
+              matching: find.byType(RepaintBoundary),
+            )
+            .first,
   );
   return (await tester.runAsync(() async {
-    final image = await boundary.toImage();
+    final image = await renderBoundary.toImage();
     try {
       final bytes = (await image.toByteData(
         format: ui.ImageByteFormat.rawRgba,

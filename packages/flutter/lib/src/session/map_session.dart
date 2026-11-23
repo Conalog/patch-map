@@ -1,19 +1,41 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:ui' show Offset;
 
+import '../api/edit_history.dart';
+import '../api/events.dart';
 import '../api/result.dart';
 import '../api/presentation.dart';
 import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/dataset_reader.dart';
 import '../frame/frame_coordinator.dart';
+import '../geometry/affine.dart' show localTranslation;
 import '../presentation/field_operations.dart';
 import '../presentation/presentation_layers.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_composer.dart';
 import '../presentation/presentation_resolver.dart';
 import '../presentation/record_delta.dart';
+import 'edit_history.dart';
 import 'request_ledger.dart';
 import 'session_backend.dart';
+
+const _moveConflict = PatchMapFailure(
+  'MOVE_CONFLICT',
+  'The active move or its position baseline changed',
+);
+const _structureConflict = PatchMapFailure(
+  'EDIT_CONFLICT',
+  'The map or structural edit changed before publication',
+);
+
+PatchMapResult _editDenied(String code, String message) => PatchMapResult(
+  PatchMapOutcome.rejected,
+  failures: [PatchMapFailure(code, message)],
+);
+PatchMapMoveResult _historyDenied(String code, String message) =>
+    PatchMapMoveResult(_editDenied(code, message), const {});
 
 /// One widget attachment's accepted dataset, presentation and request owner.
 final class MapSession {
@@ -22,11 +44,24 @@ final class MapSession {
     required this.invalidate,
     required this.onPhase,
     required this.onCallbackError,
-  });
+    this.readEditSelection,
+    this.onEditHistoryChanged,
+    int editHistoryLimit = 0,
+  }) : _editHistory = editHistoryLimit == 0
+           ? null
+           : EditHistory(editHistoryLimit);
   final SessionBackend backend;
   final void Function() invalidate;
   final void Function(PatchMapPhase phase, PatchMapFailure? failure) onPhase;
   final void Function(Object error, StackTrace stack) onCallbackError;
+  final Iterable<String> Function()? readEditSelection;
+  final void Function(PatchMapEditHistoryState)? onEditHistoryChanged;
+  final EditHistory? _editHistory;
+  _RelationEditScope? _relationEdit;
+  EditHistory? get _activeEditHistory => _relationEdit?.history ?? _editHistory;
+  _Pending? _editInFlight;
+  PatchMapEditHistoryState _notifiedHistory = emptyEditHistoryState;
+  bool _historyNotificationQueued = false;
   final _reader = const DatasetReader();
   final _admission = const PresentationAdmission();
   final _resolver = const PresentationResolver();
@@ -45,6 +80,7 @@ final class MapSession {
   Object? _work;
   bool _refresh = false;
   _Pending? _pending, _executing;
+  _Pending? _pendingBeforeEdit, _pendingEdit;
   _Submission? _submission;
   Completer<PatchMapResult>? _replacementResult;
   final _replacementFailures = <String, List<PatchMapFailure>>{};
@@ -54,10 +90,35 @@ final class MapSession {
   bool get active => _active && !_closed;
   int get generation => _generation;
   bool get commandsAllowed => !_closed && !_inFilter;
+  bool get editInFlight => _editInFlight != null;
+  bool get hasEditHistory => _editHistory != null;
+  bool get isEditingRelation => _relationEdit != null;
+  PatchMapEditHistoryState get editHistoryState =>
+      _activeEditHistory?.state(
+        active: active && _phase == PatchMapPhase.ready,
+        busy: editInFlight,
+      ) ??
+      (
+        undoDepth: 0,
+        redoDepth: 0,
+        canUndo: false,
+        canRedo: false,
+        isBusy: editInFlight,
+      );
   Map<String, Object?>? current(PatchMapTarget target) {
     final value = _values[target];
-    if (value != null) return value;
     final authored = _document?.targets[target.id];
+    if (value != null) {
+      if (target.componentId == null &&
+          authored?.type == 'group' &&
+          !identical(value['children'], authored!.data['children'])) {
+        return Map.unmodifiable({
+          ...value,
+          'children': authored.data['children'],
+        });
+      }
+      return value;
+    }
     if (authored == null) return null;
     final component = target.componentId;
     return component == null ? authored.data : authored.components[component];
@@ -130,6 +191,7 @@ final class MapSession {
     }
     _interrupt(PatchMapInterruption.replaced);
     _generation++;
+    _resetEditHistory();
     _revision = 0;
     _submittedRevision = -1;
     _document = candidate;
@@ -152,11 +214,19 @@ final class MapSession {
     final PresentationBatch batch;
     try {
       batch = _admission.admit(_document!, updates, current: _latestRecord);
+      final edit = _editInFlight?.edit;
+      if (edit is _StructurePublication &&
+          batch.patches.any((patch) => edit.blocksWrite(patch.target.id))) {
+        return Future.value(
+          _editDenied('EDIT_BUSY', 'A target is being structurally edited'),
+        );
+      }
       final contextReady =
           active &&
           _phase == PatchMapPhase.ready &&
           _work == null &&
           _pending == null &&
+          _pendingEdit == null &&
           _executing == null &&
           _submission == null &&
           _submittedRevision == _revision &&
@@ -182,6 +252,7 @@ final class MapSession {
         _phase == PatchMapPhase.ready &&
         _work == null &&
         _pending == null &&
+        _pendingEdit == null &&
         _executing == null &&
         _submission == null &&
         _submittedRevision == _revision) {
@@ -210,6 +281,711 @@ final class MapSession {
     _composePending(pending, batch);
     _schedule();
     return result;
+  }
+
+  /// A move is one atomic position update on the regular publication drain.
+  /// Finish already-waiting values first so the move can check its baseline.
+  Future<PatchMapResult> move(
+    List<PatchMapUpdate> updates,
+    bool Function() canPublish,
+    void Function() didPublish,
+  ) => _queueMove(updates, canPublish, didPublish, record: true);
+
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    required bool selectAdded,
+    required void Function(List<String>) restoreSelection,
+    required bool gestureInProgress,
+    bool editNewRelation = false,
+  }) async {
+    final denial = _editDenial(gestureInProgress: gestureInProgress);
+    if (denial != null) return denial;
+    if (editNewRelation) {
+      if (_editHistory == null) {
+        return _editDenied('HISTORY_DISABLED', 'Edit history is required');
+      }
+      if (objects.length != 1 || objects.single['type'] != 'relations') {
+        return _editDenied('INVALID_TARGET', 'A relation root is required');
+      }
+      if (objects.single['locked'] == true) {
+        return _editDenied('LOCKED_TARGET', 'The relation is locked');
+      }
+    }
+    final DatasetDocument added, candidate;
+    try {
+      final document = _document!;
+      added = _reader.readForAppend(objects, document);
+      if (added.roots.isEmpty) return PatchMapResult(PatchMapOutcome.unchanged);
+      candidate = document.append(added);
+      for (final target in added.targets.values) {
+        if (target.type == 'relations') {
+          _validateNewRelationLinks(candidate, target);
+        }
+      }
+      backend.validateDocument(added);
+    } catch (error) {
+      if (!_expected(error)) rethrow;
+      return _rejected(error);
+    }
+    return _queueStructure(
+      candidate,
+      removed: null,
+      canPublish: () => true,
+      didPublish: () {
+        if (editNewRelation) {
+          final authored = added.targets.values.single;
+          _openRelationEdit((
+            authored: authored,
+            effective: authored.data,
+          ), creating: true);
+          return;
+        }
+        final before = readEditSelection?.call().toList() ?? const <String>[];
+        if (selectAdded) {
+          restoreSelection([
+            for (final root in added.roots) root['id']! as String,
+          ]);
+        }
+        _editHistory?.recordAddition(
+          added,
+          before,
+          readEditSelection?.call().toList() ?? const <String>[],
+        );
+      },
+    );
+  }
+
+  Future<PatchMapResult> editRelation(
+    String id, {
+    List<Map<String, Object?>>? links,
+    List<List<Map<String, Object?>>>? linkSteps,
+    Map<String, Object?>? metadata,
+    required bool remove,
+    bool mergeEmptyLinkEdit = false,
+    required void Function(List<String>) restoreSelection,
+    required bool gestureInProgress,
+  }) async {
+    final scope = _relationEdit;
+    final denial = _editDenial(
+      gestureInProgress: gestureInProgress,
+      withinRelationEdit:
+          id == scope?.before.authored.id &&
+          !remove &&
+          metadata?.isNotEmpty != true,
+    );
+    if (denial != null) return denial;
+    if (linkSteps != null && scope == null) {
+      return _editDenied('INVALID_TARGET', 'An open relation edit is required');
+    }
+    final document = _document!;
+    final authored = document.targets[id];
+    if (authored?.type != 'relations') {
+      return _editDenied('INVALID_TARGET', 'A relation target is required');
+    }
+    final relation = authored!;
+    final target = PatchMapTarget(id);
+    final before = _latestRecord(target)!;
+    if (before['locked'] == true ||
+        !_relationParentUnlocked(relation.parentId)) {
+      return _editDenied('LOCKED_TARGET', 'The relation is locked');
+    }
+
+    final initial = (authored: relation, effective: before);
+    final index = document.indexOf(relation);
+    final changesLinks = links != null || linkSteps != null;
+    final metadataKeys = metadata?.keys.toSet() ?? const <String>{};
+    final steps = Queue<RelationEdit>();
+    RelationVersion? after;
+    if (!remove) {
+      DatasetTarget edited(
+        Map<String, Object?> data,
+        List<Map<String, Object?>>? nextLinks,
+      ) {
+        final attrs = data['attrs'] as Map<String, Object?>?;
+        final existingMetadata = attrs?['metadata'];
+        if (metadata?.isNotEmpty == true &&
+            existingMetadata != null &&
+            existingMetadata is! Map<String, Object?>) {
+          throw DatasetException(
+            'INVALID_DATA',
+            id,
+            'Relation metadata must be an object',
+          );
+        }
+        return _reader.readRelation({
+          ...data,
+          'links': ?nextLinks,
+          if (metadata?.isNotEmpty == true)
+            'attrs': {
+              ...?attrs,
+              'metadata': {
+                if (existingMetadata is Map<String, Object?>)
+                  ...existingMetadata,
+                ...metadata!,
+              },
+            },
+        }, relation.parentId);
+      }
+
+      try {
+        var previous = initial;
+        final internedLinks = <(String, String), Map<String, Object?>>{};
+        for (final nextLinks in linkSteps ?? [links]) {
+          // Links are the only changing field in a stroke. Normalize them once
+          // and share the immutable result between authored and effective data.
+          final normalized = linkSteps != null
+              ? _reader.readRelationLinks(nextLinks, interned: internedLinks)
+              : null;
+          final candidate = normalized == null
+              ? edited(previous.authored.data, nextLinks)
+              : DatasetTarget(
+                  id: previous.authored.id,
+                  type: previous.authored.type,
+                  parentId: previous.authored.parentId,
+                  row: previous.authored.row,
+                  column: previous.authored.column,
+                  active: previous.authored.active,
+                  components: previous.authored.components,
+                  data: Map.unmodifiable({
+                    ...previous.authored.data,
+                    'links': normalized,
+                  }),
+                );
+          if (nextLinks != null) {
+            _validateNewRelationLinks(
+              document,
+              candidate,
+              previous: previous.authored,
+            );
+          }
+          final original = scope?.before.authored;
+          // Reuse the original target when returning to its links so older
+          // global history entries can still match its identity.
+          final nextAuthored =
+              original != null &&
+                  presentationEqual(
+                    candidate.data['links'],
+                    original.data['links'],
+                  )
+              ? original
+              : candidate;
+          final nextValue =
+              identical(previous.effective, previous.authored.data)
+              ? nextAuthored.data
+              : normalized != null
+              ? Map<String, Object?>.unmodifiable({
+                  ...previous.effective,
+                  'links': normalized,
+                })
+              : edited(previous.effective, nextLinks).data;
+          if (presentationEqual(previous.authored.data, nextAuthored.data) &&
+              presentationEqual(previous.effective, nextValue)) {
+            continue;
+          }
+          final next = (authored: nextAuthored, effective: nextValue);
+          if (linkSteps != null) {
+            if (steps.length == scope!.history.limit) steps.removeFirst();
+            steps.add(
+              RelationEdit(
+                previous,
+                next,
+                index,
+                changesLinks: true,
+                metadataKeys: const {},
+              ),
+            );
+          }
+          previous = next;
+          after = next;
+        }
+        if (after == null) return PatchMapResult(PatchMapOutcome.unchanged);
+      } on DatasetException catch (error) {
+        return _rejected(error);
+      }
+    }
+
+    final change = RelationEdit(
+      initial,
+      after,
+      index,
+      changesLinks: changesLinks,
+      metadataKeys: metadataKeys,
+    );
+    return _queueRelation(
+      change,
+      redo: true,
+      isCurrent: () => true,
+      didPublish: () {
+        final before = readEditSelection?.call().toList() ?? const <String>[];
+        final after = remove
+            ? before.where((selected) => selected != id).toList()
+            : before;
+        if (remove && after.length != before.length) restoreSelection(after);
+        final history = _activeEditHistory;
+        if (steps.isEmpty) {
+          history?.recordRelation(
+            change,
+            before,
+            after,
+            mergeEmptyLinkEdit: mergeEmptyLinkEdit,
+          );
+        } else {
+          for (final step in steps) {
+            history!.recordRelation(step, before, after);
+          }
+        }
+      },
+    );
+  }
+
+  void _validateNewRelationLinks(
+    DatasetDocument document,
+    DatasetTarget relation, {
+    DatasetTarget? previous,
+  }) {
+    final links = relation.data['links']! as List<Map<String, Object?>>;
+    Set<(String, String)>? previousPairs;
+    for (final (index, link) in links.indexed) {
+      final source = link['source']! as String;
+      final target = link['target']! as String;
+      final sourceNode = document.targets[source];
+      final targetNode = document.targets[target];
+      final invalid = switch ((sourceNode?.type, targetNode?.type)) {
+        (null || 'relations', _) => 'source',
+        (_, null || 'relations') => 'target',
+        _ => null,
+      };
+      if (invalid == null) continue;
+      // Only consult the previous list when a legacy link may be carried forward.
+      if (previous != null) {
+        previousPairs ??= {
+          for (final link
+              in previous.data['links']! as List<Map<String, Object?>>)
+            (link['source']! as String, link['target']! as String),
+        };
+        if (previousPairs.contains((source, target))) continue;
+      }
+      final endpoint = invalid == 'source' ? sourceNode : targetNode;
+      final endpointId = link[invalid];
+      throw DatasetException(
+        endpoint == null ? 'MISSING_TARGET' : 'INVALID_TARGET',
+        '${relation.id}.links[$index].$invalid',
+        endpoint == null
+            ? 'Relation endpoint "$endpointId" does not exist'
+            : 'Relation "$endpointId" cannot be used as a link endpoint',
+      );
+    }
+  }
+
+  PatchMapResult beginRelationEdit(
+    String id, {
+    required bool gestureInProgress,
+  }) {
+    final denial = _editDenial(gestureInProgress: gestureInProgress);
+    if (denial != null) return denial;
+    if (_editHistory == null) {
+      return _editDenied('HISTORY_DISABLED', 'Edit history is required');
+    }
+    final authored = _document!.targets[id];
+    if (authored == null || authored.type != 'relations') {
+      return _editDenied('INVALID_TARGET', 'A relation target is required');
+    }
+    final effective = _latestRecord(PatchMapTarget(id))!;
+    if (effective['locked'] == true ||
+        !_relationParentUnlocked(authored.parentId)) {
+      return _editDenied('LOCKED_TARGET', 'The relation is locked');
+    }
+    _openRelationEdit((authored: authored, effective: effective));
+    return PatchMapResult(PatchMapOutcome.applied);
+  }
+
+  void _openRelationEdit(RelationVersion before, {bool creating = false}) {
+    _relationEdit = _RelationEditScope(
+      before,
+      readEditSelection?.call().toList() ?? const [],
+      EditHistory(_editHistory!.limit),
+      creating: creating,
+    );
+    _notifyEditHistory();
+  }
+
+  Future<PatchMapResult> finishRelationEdit(
+    String id, {
+    required bool removeIfEmpty,
+    bool cancelCreation = false,
+    required bool gestureInProgress,
+    required void Function(List<String>) restoreSelection,
+  }) async {
+    final denial = _editDenial(
+      gestureInProgress: gestureInProgress,
+      withinRelationEdit: true,
+    );
+    if (denial != null) return denial;
+    final scope = _relationEdit;
+    if (scope == null ||
+        scope.before.authored.id != id ||
+        (cancelCreation && !scope.creating)) {
+      return _editDenied('INVALID_TARGET', 'No matching relation edit is open');
+    }
+    final document = _document!;
+    final authored = document.targets[id]!;
+    final effective = _latestRecord(PatchMapTarget(id))!;
+    final current = (authored: authored, effective: effective);
+    final index = document.indexOf(authored);
+    final remove =
+        cancelCreation ||
+        ((scope.creating || removeIfEmpty) &&
+            (effective['links'] as List).isEmpty);
+    final changed =
+        scope.creating || !identical(authored, scope.before.authored);
+    final selection = remove
+        ? scope.selection.where((selected) => selected != id).toList()
+        : scope.creating
+        ? [id]
+        : scope.selection;
+
+    void finish() {
+      if (scope.creating) {
+        if (!remove) {
+          _editHistory!.recordAddition(
+            DatasetDocument.relationRoot(authored),
+            scope.selection,
+            selection,
+          );
+        }
+      } else if (remove || changed) {
+        _editHistory!.recordRelation(
+          RelationEdit(
+            remove
+                ? (
+                    authored: scope.before.authored,
+                    effective: Map.unmodifiable({
+                      ...effective,
+                      'links': scope.before.effective['links'],
+                    }),
+                  )
+                : scope.before,
+            remove ? null : current,
+            index,
+            changesLinks: true,
+            metadataKeys: const {},
+          ),
+          scope.selection,
+          selection,
+        );
+      }
+      _relationEdit = null;
+      restoreSelection(selection);
+      _notifyEditHistory();
+    }
+
+    if (!remove) {
+      finish();
+      return PatchMapResult(
+        changed ? PatchMapOutcome.applied : PatchMapOutcome.unchanged,
+      );
+    }
+    if (!scope.creating &&
+        (effective['locked'] == true ||
+            !_relationParentUnlocked(authored.parentId))) {
+      return _editDenied('LOCKED_TARGET', 'The relation is locked');
+    }
+    return _queueRelation(
+      RelationEdit(
+        current,
+        null,
+        index,
+        changesLinks: false,
+        metadataKeys: const {},
+      ),
+      redo: true,
+      isCurrent: () => identical(_relationEdit, scope),
+      didPublish: finish,
+      allowLockedRemoval: scope.creating,
+    );
+  }
+
+  bool _relationParentUnlocked(String? id) {
+    while (id != null) {
+      final group = _document!.targets[id];
+      if (group == null || current(PatchMapTarget(id))?['locked'] == true) {
+        return false;
+      }
+      id = group.parentId;
+    }
+    return true;
+  }
+
+  Future<PatchMapResult> _queueRelation(
+    RelationEdit relation, {
+    required bool redo,
+    required bool Function() isCurrent,
+    required void Function() didPublish,
+    bool allowLockedRemoval = false,
+  }) {
+    final id = relation.id;
+    final target = PatchMapTarget(id);
+    final previous = relation.version(redo: !redo);
+    final next = relation.version(redo: redo);
+    final baseline = _latestRecord(target);
+    if (!identical(_document!.targets[id], previous?.authored) ||
+        (previous == null) != (baseline == null) ||
+        (baseline != null &&
+            !relation.matches(baseline, previous!.effective))) {
+      return Future.value(
+        _editDenied(_structureConflict.code, _structureConflict.message),
+      );
+    }
+    final effective = next == null
+        ? null
+        : baseline == null
+        ? next.effective
+        : relation.apply(baseline, next.effective);
+    final nextValue =
+        next != null && presentationEqual(effective, next.authored.data)
+        ? next.authored.data
+        : effective;
+    bool canPublish() =>
+        isCurrent() &&
+        identical(_document!.targets[id], previous?.authored) &&
+        (allowLockedRemoval || current(target)?['locked'] != true) &&
+        presentationEqual(current(target), baseline) &&
+        _relationParentUnlocked(relation.parentId);
+
+    return _queueStructure(
+      _document!.changeRelation(
+        id,
+        parentId: relation.parentId,
+        index: relation.index,
+        replacement: next?.authored,
+      ),
+      removed: next == null ? {id} : null,
+      relationValue: nextValue,
+      canPublish: canPublish,
+      didPublish: () {
+        if (next == null) {
+          relation.before = (
+            authored: relation.before.authored,
+            effective: baseline!,
+          );
+        }
+        if (nextValue != null && !identical(nextValue, next!.authored.data)) {
+          _values[target] = nextValue;
+        } else {
+          _values.remove(target);
+        }
+        didPublish();
+      },
+    );
+  }
+
+  bool recordSelection(Iterable<String> before, Iterable<String> after) {
+    final history = _editHistory;
+    if (history == null ||
+        !commandsAllowed ||
+        !active ||
+        _phase != PatchMapPhase.ready ||
+        editInFlight ||
+        isEditingRelation ||
+        !history.recordSelection(before, after)) {
+      return false;
+    }
+    _notifyEditHistory();
+    return true;
+  }
+
+  Future<PatchMapMoveResult> replayEdit({
+    required bool redo,
+    required bool Function(String id) canMove,
+    required void Function(List<String> ids) restoreSelection,
+    bool gestureInProgress = false,
+  }) async {
+    if (!commandsAllowed || !active || _phase != PatchMapPhase.ready) {
+      return _historyDenied('NOT_READY', 'An active, ready map is required');
+    }
+    if (editInFlight) {
+      return _historyDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
+    final history = _activeEditHistory;
+    final entry = history?.at(redo: redo);
+    if (history == null || entry == null) {
+      return PatchMapMoveResult(
+        PatchMapResult(PatchMapOutcome.unchanged),
+        const {},
+      );
+    }
+    if (gestureInProgress) {
+      return _historyDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
+
+    final generation = _generation, suspension = _suspension;
+    bool canPublish() =>
+        _generation == generation &&
+        _suspension == suspension &&
+        identical(history.at(redo: redo), entry) &&
+        entry.matches(redo, current, canMove);
+    if (!canPublish()) {
+      return _historyDenied(_moveConflict.code, _moveConflict.message);
+    }
+
+    final selection = entry.selection(redo: redo);
+    final relation = entry.relation;
+    if (relation != null) {
+      final result = await _queueRelation(
+        relation,
+        redo: redo,
+        isCurrent: canPublish,
+        didPublish: () {
+          history.advance(redo: redo);
+          restoreSelection(selection);
+        },
+      );
+      return PatchMapMoveResult(result, const {});
+    }
+    final added = entry.added;
+    if (added != null) {
+      final DatasetDocument document;
+      try {
+        document = redo
+            ? _document!.append(added)
+            : _document!.removeAppended(added);
+      } on DatasetException catch (error) {
+        return PatchMapMoveResult(_rejected(error), const {});
+      }
+      final result = await _queueStructure(
+        document,
+        removed: redo ? null : added.targets.keys.toSet(),
+        canPublish: canPublish,
+        didPublish: () {
+          history.advance(redo: redo);
+          restoreSelection(selection);
+        },
+      );
+      return PatchMapMoveResult(result, const {});
+    }
+    if (!entry.hasPositions) {
+      history.advance(redo: redo);
+      restoreSelection(selection);
+      _notifyEditHistory();
+      return PatchMapMoveResult(
+        PatchMapResult(PatchMapOutcome.applied),
+        const {},
+      );
+    }
+
+    Map<String, Offset> positions = const {};
+    final result = await _queueMove(entry.updates(redo: redo), canPublish, () {
+      history.advance(redo: redo);
+      positions = {
+        for (final id in entry.ids)
+          id: localTranslation(current(PatchMapTarget(id))!),
+      };
+      restoreSelection(selection);
+    }, record: false);
+    return PatchMapMoveResult(
+      result,
+      result.outcome == PatchMapOutcome.applied && !result.superseded
+          ? positions
+          : const {},
+    );
+  }
+
+  Future<PatchMapResult> _queueMove(
+    List<PatchMapUpdate> updates,
+    bool Function() canPublish,
+    void Function() didPublish, {
+    required bool record,
+  }) {
+    final denial = _editDenial();
+    if (denial != null) return Future.value(denial);
+    final PresentationBatch batch;
+    try {
+      batch = _admission.admit(_document!, updates, current: current);
+    } on DatasetException catch (error) {
+      return Future.value(_rejected(error));
+    }
+    return _enqueueEdit(
+      _MovePublication(canPublish, didPublish, record),
+      batch,
+    );
+  }
+
+  Future<PatchMapResult> _queueStructure(
+    DatasetDocument document, {
+    required Set<String>? removed,
+    Map<String, Object?>? relationValue,
+    required bool Function() canPublish,
+    required void Function() didPublish,
+  }) => _enqueueEdit(
+    _StructurePublication(
+      canPublish,
+      didPublish,
+      document,
+      removed,
+      relationValue,
+    ),
+    PresentationBatch(const [], const []),
+  );
+
+  Future<PatchMapResult> _enqueueEdit(
+    _EditPublication edit,
+    PresentationBatch batch,
+  ) {
+    final pending = _Pending()..edit = edit;
+    final result = pending.ledger.add(batch);
+    if (batch.patches.isNotEmpty) _composePending(pending, batch);
+    // Keep later value updates from composing into the batch ahead of the edit.
+    _pendingBeforeEdit = _pending;
+    _pending = null;
+    _pendingEdit = _editInFlight = pending;
+    _schedule();
+    _notifyEditHistory();
+    return result.whenComplete(() {
+      if (!identical(_editInFlight, pending)) return;
+      _editInFlight = null;
+      _notifyEditHistory();
+    });
+  }
+
+  PatchMapResult? _editDenial({
+    bool gestureInProgress = false,
+    bool withinRelationEdit = false,
+  }) {
+    if (!commandsAllowed || !active || _phase != PatchMapPhase.ready) {
+      return _editDenied('NOT_READY', 'An active, ready map is required');
+    }
+    if (gestureInProgress ||
+        editInFlight ||
+        (!withinRelationEdit && isEditingRelation)) {
+      return _editDenied('EDIT_BUSY', 'An edit is already in progress');
+    }
+    return null;
+  }
+
+  void _resetEditHistory() {
+    _relationEdit = null;
+    _editHistory?.clear();
+    _editInFlight = null;
+    _notifyEditHistory();
+  }
+
+  void _notifyEditHistory() {
+    final callback = onEditHistoryChanged;
+    if (callback == null ||
+        _closed ||
+        _historyNotificationQueued ||
+        editHistoryState == _notifiedHistory) {
+      return;
+    }
+    _historyNotificationQueued = true;
+    scheduleMicrotask(() {
+      _historyNotificationQueued = false;
+      if (_closed) return;
+      final state = editHistoryState;
+      if (state == _notifiedHistory) return;
+      _notifiedHistory = state;
+      notify(() => callback(state));
+    });
   }
 
   /// Caller callback mutations are admitted immediately, processed on exit.
@@ -249,19 +1025,19 @@ final class MapSession {
       _suspension++;
       _resumeWithoutAnimation = true;
     } else {
-      if (_submission != null && _pending != null) {
+      final old = _executing;
+      final newer = _nextValueBatch;
+      if (_submission != null && newer != null) {
         // A publication never submitted before suspension has no right to
-        // precede newer accepted values on the first resumed frame.
-        final old = _executing;
+        // precede newer values on the same side of an edit on resume.
         if (old != null) {
-          final newer = _pending!;
           old.ledger.absorb(newer.ledger);
           // Published successful fields already live in _values; failed fields
           // must not be replayed. Carry obligations, not the old value plan.
           old.plan = newer.plan;
           old.index = newer.index;
           old.rolledBack = newer.rolledBack;
-          _pending = old;
+          _nextValueBatch = old;
         }
         _executing = null;
         _submission = null;
@@ -269,6 +1045,7 @@ final class MapSession {
       _schedule();
       if (_submission != null) invalidate();
     }
+    _notifyEditHistory();
   }
 
   void didSubmit(PaintSubmission stamp) {
@@ -296,6 +1073,7 @@ final class MapSession {
       _phase = PatchMapPhase.ready;
       notify(() => onPhase(PatchMapPhase.ready, null));
     }
+    _notifyEditHistory();
     _schedule();
   }
 
@@ -304,6 +1082,7 @@ final class MapSession {
     if (_closed || _phase == PatchMapPhase.failed) return;
     final failure = _failure(error);
     _phase = PatchMapPhase.failed;
+    _resetEditHistory();
     _work = null;
     _wakeActivity();
     _replacement = false;
@@ -312,12 +1091,16 @@ final class MapSession {
     } else {
       final trace = stack ?? StackTrace.current;
       _pending?.ledger.failUnexpected(error, trace);
+      _pendingBeforeEdit?.ledger.failUnexpected(error, trace);
+      _pendingEdit?.ledger.failUnexpected(error, trace);
       _executing?.ledger.failUnexpected(error, trace);
       final replacement = _replacementResult;
       if (replacement != null && !replacement.isCompleted) {
         replacement.completeError(error, trace);
       }
       _pending = null;
+      _pendingBeforeEdit = null;
+      _pendingEdit = null;
       _executing = null;
       _submission = null;
       _replacementResult = null;
@@ -337,12 +1120,20 @@ final class MapSession {
     if (result == null) return null;
     // A published executing plan is already represented by _values. Replaying
     // it would resurrect fields of an item whose preparation failed.
-    final executing = _submission == null ? _executing?.index[target] : null;
+    final executing = _submission == null && _executing?.edit == null
+        ? _executing?.index[target]
+        : null;
+    final beforeEdit = _pendingBeforeEdit?.index[target];
     final pending = _pending?.index[target];
-    if (executing == null && pending == null) return result;
+    if (executing == null && beforeEdit == null && pending == null) {
+      return result;
+    }
     final authored = authoredRecord(_document!, target);
     if (executing != null) {
       result = _resolver.resolvePatch(authored, result, executing);
+    }
+    if (beforeEdit != null) {
+      result = _resolver.resolvePatch(authored, result, beforeEdit);
     }
     if (pending != null) {
       result = _resolver.resolvePatch(authored, result, pending);
@@ -453,7 +1244,18 @@ final class MapSession {
       _work == null &&
       _submission == null &&
       _phase != PatchMapPhase.failed &&
-      (_replacement || _pending != null || _refresh);
+      (_replacement || _pending != null || _pendingEdit != null || _refresh);
+
+  _Pending? get _nextValueBatch =>
+      _pendingEdit == null ? _pending : _pendingBeforeEdit;
+
+  set _nextValueBatch(_Pending? batch) {
+    if (_pendingEdit == null) {
+      _pending = batch;
+    } else {
+      _pendingBeforeEdit = batch;
+    }
+  }
 
   void _schedule() {
     if (_queued || !_canDrain) return;
@@ -505,9 +1307,27 @@ final class MapSession {
       }
       // First-screen input is cut at presentation processing, after document
       // preparation. Later active requests cannot postpone first readiness.
-      var pending = _executing = _pending;
-      _pending = null;
+      final queuedEdit = _pendingEdit;
+      final takeEdit =
+          !initial &&
+          !refresh &&
+          queuedEdit != null &&
+          _pendingBeforeEdit == null;
+      var pending = _executing = takeEdit ? queuedEdit : _nextValueBatch;
+      if (takeEdit) {
+        _pendingEdit = null;
+      } else {
+        _nextValueBatch = null;
+      }
+      final edit = pending?.edit;
+      final structure = edit is _StructurePublication ? edit : null;
+      final conflict = structure == null ? _moveConflict : _structureConflict;
       while (valid()) {
+        if (edit != null && !edit.canPublish()) {
+          pending!.ledger.reject([conflict]);
+          _executing = null;
+          return;
+        }
         final suspension = _suspension;
         final changes = pending == null
             ? <PatchMapTarget, RecordDelta>{}
@@ -515,32 +1335,66 @@ final class MapSession {
         var failures = pending == null
             ? const <String, List<PatchMapFailure>>{}
             : _revalidateAfterFailure(pending, changes);
-        if (changes.isNotEmpty) {
-          final prepared = await backend.prepareUpdate(
-            baseline,
-            document,
-            changes,
-            generation: generation,
-            animate: !initial && !_resumeWithoutAnimation,
-            intent: pending?.plan,
-          );
-          candidate = prepared.publication;
-          failures = failures.isEmpty
-              ? prepared.failures
-              : {...failures, ...prepared.failures};
+        if (structure != null || changes.isNotEmpty) {
+          try {
+            if (structure != null) {
+              candidate = await backend.prepareStructure(
+                baseline,
+                structure.document,
+                relationValue: structure.relationValue,
+              );
+            } else {
+              final prepared = await backend.prepareUpdate(
+                baseline,
+                document,
+                changes,
+                generation: generation,
+                animate: !initial && !_resumeWithoutAnimation,
+                intent: pending?.plan,
+                atomic: edit != null,
+              );
+              candidate = prepared.publication;
+              failures = failures.isEmpty
+                  ? prepared.failures
+                  : {...failures, ...prepared.failures};
+            }
+          } catch (error) {
+            if (edit == null || !_expected(error)) rethrow;
+            if (valid()) {
+              pending!.ledger.reject([_failure(error)]);
+              _executing = null;
+            }
+            return;
+          }
         } else {
           candidate = baseline;
           backend.retain(candidate);
         }
-        if (!await waitActive()) return;
+        if (edit != null) {
+          if (!valid()) return;
+          if (!active ||
+              suspension != _suspension ||
+              !edit.canPublish() ||
+              failures.isNotEmpty) {
+            pending!.ledger.reject(
+              failures.isEmpty
+                  ? [conflict]
+                  : failures.values.expand((value) => value),
+            );
+            _executing = null;
+            return;
+          }
+        } else if (!await waitActive()) {
+          return;
+        }
         if (suspension != _suspension) {
           // Resume publishes latest composed values, never an intermediate
           // result prepared before suspension. The old work's reservation is
           // released only now, after its actual completion.
           backend.retire(candidate);
           candidate = null;
-          final newer = _pending;
-          _pending = null;
+          final newer = _nextValueBatch;
+          _nextValueBatch = null;
           if (newer != null) {
             if (pending == null) {
               pending = newer;
@@ -557,6 +1411,7 @@ final class MapSession {
         _publication = candidate;
         candidate = null; // Transfer this owned reference to the live session.
         if (previous != null) backend.retire(previous);
+        final history = _editHistory;
         for (final entry in changes.entries) {
           if (failures.containsKey(entry.key.id)) {
             _failedTargets.add(entry.key.id);
@@ -567,9 +1422,10 @@ final class MapSession {
         }
         if (failures.isNotEmpty) {
           _failedTargets.addAll(failures.keys);
-          final waiting = _pending;
-          if (waiting != null) {
-            (waiting.rolledBack ??= {}).addAll(failures.keys);
+          for (final waiting in [_pendingBeforeEdit, _pending]) {
+            if (waiting != null) {
+              (waiting.rolledBack ??= {}).addAll(failures.keys);
+            }
           }
         }
         _revision = nextRevision;
@@ -581,6 +1437,45 @@ final class MapSession {
           failures,
         );
         pending?.ledger.recordFailures(failures);
+        if (edit != null) {
+          pending!.edit = null;
+          if (structure != null) {
+            final oldDocument = _document!;
+            _document = structure.document;
+            final removed = structure.removed;
+            if (removed != null) {
+              _values.removeWhere((target, _) => removed.contains(target.id));
+              _failedTargets.removeAll(removed);
+            }
+            final layers = _layers;
+            if (layers != null) {
+              final before = layers.opacity;
+              final relationId = structure.relationValue?['id'] as String?;
+              final restored =
+                  relationId != null &&
+                      !oldDocument.targets.containsKey(relationId)
+                  ? structure.document.targets[relationId]
+                  : null;
+              layers.documentChanged(
+                structure.document,
+                removed: removed,
+                restoredRelation: restored,
+              );
+              _publishPresentation(before);
+            }
+          } else if ((edit as _MovePublication).record && history != null) {
+            history.recordPositions(changes, readEditSelection);
+          }
+          edit.didPublish();
+        } else if (history != null &&
+            !history.isEmpty &&
+            changes.entries.any(
+              (entry) =>
+                  !failures.containsKey(entry.key.id) &&
+                  history.conflicts(entry.key, entry.value),
+            )) {
+          history.clear();
+        }
         if (_replacementResult != null) _replacementFailures.addAll(failures);
         invalidate();
         break;
@@ -656,6 +1551,8 @@ final class MapSession {
 
   void _interrupt(PatchMapInterruption reason, {PatchMapFailure? failure}) {
     _pending?.ledger.interrupt(reason, failure: failure);
+    _pendingBeforeEdit?.ledger.interrupt(reason, failure: failure);
+    _pendingEdit?.ledger.interrupt(reason, failure: failure);
     _executing?.ledger.interrupt(reason, failure: failure);
     final replacement = _replacementResult;
     if (replacement != null && !replacement.isCompleted) {
@@ -671,6 +1568,8 @@ final class MapSession {
       );
     }
     _pending = null;
+    _pendingBeforeEdit = null;
+    _pendingEdit = null;
     _executing = null;
     _submission = null;
     _replacementResult = null;
@@ -680,6 +1579,7 @@ final class MapSession {
   void close() {
     if (_closed) return;
     _closed = true;
+    _resetEditHistory();
     _work = null;
     _wakeActivity();
     _interrupt(PatchMapInterruption.detached);
@@ -695,11 +1595,53 @@ final class MapSession {
   }
 }
 
+final class _RelationEditScope {
+  _RelationEditScope(
+    this.before,
+    this.selection,
+    this.history, {
+    required this.creating,
+  });
+
+  final bool creating;
+  final RelationVersion before;
+  final List<String> selection;
+  final EditHistory history;
+}
+
 class _Pending {
   PresentationPlan plan = PresentationPlan([]);
   Map<PatchMapTarget, PresentationPatch> index = {};
   final ledger = RequestLedger();
   Set<String>? rolledBack;
+  _EditPublication? edit;
+}
+
+sealed class _EditPublication {
+  const _EditPublication(this.canPublish, this.didPublish);
+  final bool Function() canPublish;
+  final void Function() didPublish;
+}
+
+final class _MovePublication extends _EditPublication {
+  const _MovePublication(super.canPublish, super.didPublish, this.record);
+  final bool record;
+}
+
+final class _StructurePublication extends _EditPublication {
+  const _StructurePublication(
+    super.canPublish,
+    super.didPublish,
+    this.document,
+    this.removed,
+    this.relationValue,
+  );
+  final DatasetDocument document;
+  final Set<String>? removed;
+  final Map<String, Object?>? relationValue;
+
+  bool blocksWrite(String id) =>
+      removed?.contains(id) == true || relationValue?['id'] == id;
 }
 
 class _Submission {

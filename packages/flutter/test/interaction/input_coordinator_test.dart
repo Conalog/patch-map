@@ -28,6 +28,31 @@ GeometrySnapshot _compile(List<Object?> data) => GeometrySnapshot.compile(
 );
 
 void main() {
+  test('target-gated paint preserves the down target and pans from blank', () {
+    final h = _Harness([_item('a', 0), _item('b', 20), _item('c', 40)]);
+    h.input.dragMode = PatchMapDragMode.paint;
+    h.input.paintDragRequiresTarget = true;
+    h.input.query.filter = (object) => object.id != 'c';
+
+    h.down(1, const Offset(5, 5));
+    h.move(1, const Offset(50, 5));
+    h.up(1, const Offset(50, 5));
+    final start = h.events.singleWhere(
+      (event) => event.kind == PatchMapInputKind.dragStart,
+    );
+    expect(start.target?.id, 'a');
+    expect(start.mode, PatchMapDragMode.paint);
+    expect(h.events.last.objects.map((object) => object.id), ['a', 'b']);
+    final center = h.camera.center;
+
+    h.down(2, const Offset(45, 5)); // c is rejected by the input filter.
+    h.move(2, const Offset(-10, 5));
+    h.up(2, const Offset(-10, 5));
+    expect(h.events.last.mode, PatchMapDragMode.pan);
+    expect(h.events.last.objects, isEmpty);
+    expect(h.camera.center, isNot(center));
+  });
+
   test(
     'filter skips front rejected target; direct selection bypasses filter',
     () {

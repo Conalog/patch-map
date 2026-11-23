@@ -24,6 +24,173 @@ import 'draw_plan_test.dart' as drawing;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('editing an existing relation retains unrelated render state', () async {
+    final h = await Harness.create(
+      input: [
+        for (final (id, x) in [('a', 0), ('b', 40), ('c', 80)])
+          {
+            'type': 'rect',
+            'id': id,
+            'size': 20,
+            'attrs': {'x': x},
+          },
+        {
+          'type': 'group',
+          'id': 'g',
+          'children': [
+            {
+              'type': 'relations',
+              'id': 'edited',
+              'links': [
+                {'source': 'a', 'target': 'b'},
+              ],
+            },
+          ],
+        },
+        {
+          'type': 'relations',
+          'id': 'unrelated',
+          'links': [
+            {'source': 'a', 'target': 'c'},
+          ],
+        },
+      ],
+    );
+    addTearDown(h.close);
+    final original = h.current;
+    var document = h.document;
+    final slot = original.geometry.topology.slots['edited']!;
+    final group = original.geometry.topology.slots['g']!;
+    final editedGeometry = original.geometry.relationFor('edited')!;
+    final unrelatedGeometry = original.geometry.relationFor('unrelated')!;
+    final unrelatedDraw = original.node(
+      original.geometry.topology.slots['unrelated']!,
+    );
+
+    Future<RenderPublication> edit(Map<String, Object?> updates) async {
+      final replacement = const DatasetReader().readRelation({
+        ...document.targets['edited']!.data,
+        ...updates,
+      }, 'g');
+      document = document.changeRelation(
+        'edited',
+        parentId: 'g',
+        index: 0,
+        replacement: replacement,
+      );
+      final candidate =
+          await h.backend.prepareStructure(
+                h.current,
+                document,
+                relationValue: replacement.data,
+              )
+              as RenderPublication;
+      expect(candidate.geometry.topology, same(original.geometry.topology));
+      expect(candidate.geometry.paintSlots, same(original.geometry.paintSlots));
+      expect(
+        candidate.geometry.relationFor('unrelated'),
+        same(unrelatedGeometry),
+      );
+      expect(
+        candidate.node(original.geometry.topology.slots['unrelated']!),
+        same(unrelatedDraw),
+      );
+      expect(candidate.changed, unorderedEquals([slot, group]));
+      expect(candidate.geometry['g']!.target, same(document.targets['g']));
+      h.publish(candidate);
+      return candidate;
+    }
+
+    final metadata = await edit({
+      'attrs': {
+        'metadata': {'parent': 'new'},
+      },
+    });
+    expect(metadata.geometry.relationFor('edited'), same(editedGeometry));
+    final linked = await edit({
+      'links': [
+        {'source': 'a', 'target': 'c'},
+      ],
+    });
+    expect(linked.geometry.relationFor('edited'), isNot(same(editedGeometry)));
+    expect(linked.geometry.relationIdsFor('b'), isEmpty);
+    expect(linked.geometry.relationIdsFor('c').toList(), [
+      'edited',
+      'unrelated',
+    ]);
+
+    final moved = await h.prepare(const [
+      PatchMapUpdate(PatchMapTarget('c'), {
+        'attrs': {'x': 150},
+      }),
+    ]);
+    expect(
+      moved.geometry.relationFor('edited')!.bounds!.right,
+      greaterThan(linked.geometry.relationFor('edited')!.bounds!.right),
+    );
+    h.backend.retire(moved);
+  });
+
+  test(
+    'removing and restoring a relation keeps each running bar on its item',
+    () async {
+      Map<String, Object?> item(String id, int height) => {
+        'type': 'item',
+        'id': id,
+        'size': 100,
+        'components': [
+          {
+            'type': 'bar',
+            'id': 'bar',
+            'source': {'type': 'rect', 'fill': '#00ff00'},
+            'size': {'width': 40, 'height': height},
+            'animation': true,
+            'animationDuration': 1000,
+          },
+        ],
+      };
+      final h = await Harness.create(
+        input: [
+          {'type': 'relations', 'id': 'r', 'links': []},
+          item('a', 10),
+          item('b', 70),
+        ],
+      );
+      addTearDown(h.close);
+      final transitions = h.backend.transitions;
+      h.publish(
+        await h.prepare(const [
+          PatchMapUpdate(PatchMapTarget('a', componentId: 'bar'), {
+            'size': {'height': 90},
+          }),
+        ], animate: true),
+      );
+      transitions.advance(Duration.zero);
+      transitions.advance(const Duration(milliseconds: 100));
+
+      Rect? displayed(String id) =>
+          transitions.rectangle(h.current.geometry.topology.slots[id]!, 'bar');
+      final before = displayed('a');
+      expect(before, isNotNull);
+      final withoutRelation = h.document.changeRelation(
+        'r',
+        parentId: null,
+        index: 0,
+        replacement: null,
+      );
+      for (final document in [withoutRelation, h.document]) {
+        final next = await h.backend.prepareStructure(h.current, document);
+        h.publish(next as RenderPublication);
+        expect(displayed('a'), before);
+        expect(displayed('b'), isNull);
+      }
+      transitions.advance(const Duration(milliseconds: 500));
+      expect(displayed('a')!.height, closeTo(50, 1e-9));
+      transitions.advance(const Duration(milliseconds: 1000));
+      expect(displayed('a'), isNull);
+    },
+  );
+
   test('item culling keeps FiraCode ink outside the text layout box', () async {
     final font = FontLoader('FiraCode')
       ..addFont(

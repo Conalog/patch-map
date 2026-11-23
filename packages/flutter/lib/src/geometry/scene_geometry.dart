@@ -22,7 +22,15 @@ final class SceneGeometry {
     DatasetDocument document,
     MeasureText measureText, {
     MeasureImage? measureImage,
-  }) => _Builder(document, measureText, measureImage).build();
+    TargetGeometry? Function(String id)? retained,
+    Map<String, Object?>? relationValue,
+  }) => _Builder(
+    document,
+    measureText,
+    measureImage,
+    retained,
+    relationValue,
+  ).build();
 }
 
 final class TargetGeometry {
@@ -236,10 +244,18 @@ TargetGeometry projectTargetGeometry({
 }
 
 class _Builder {
-  _Builder(this.document, this.measureText, this.measureImage);
+  _Builder(
+    this.document,
+    this.measureText,
+    this.measureImage,
+    this.retained,
+    this.relationValue,
+  );
   final DatasetDocument document;
   final MeasureText measureText;
   final MeasureImage? measureImage;
+  final TargetGeometry? Function(String id)? retained;
+  final Map<String, Object?>? relationValue;
   final _items = HashMap<Map<String, Object?>, ItemLayout>.identity();
   final _targets = <String, TargetGeometry>{};
   final _ordered = <TargetGeometry>[];
@@ -255,7 +271,20 @@ class _Builder {
   }
 
   TargetGeometry _element(DatasetTarget target, TargetGeometry? parent) {
-    final data = target.data, childIds = <String>[];
+    final previous = retained?.call(target.id);
+    final sameTarget = identical(previous?.target, target);
+    final editedRelation = relationValue?['id'] == target.id
+        ? relationValue
+        : null;
+    final data =
+        editedRelation ??
+        (previous != null && !sameTarget && target.type == 'group'
+            ? Map<String, Object?>.unmodifiable({
+                ...previous.data,
+                'children': target.data['children'],
+              })
+            : target.data);
+    final childIds = <String>[];
     if (target.type == 'group') {
       childIds.addAll(
         orderedRecords(
@@ -263,31 +292,27 @@ class _Builder {
         ).map((value) => value['id']! as String),
       );
     } else if (target.type == 'grid') {
-      final rows = data['cells']! as List;
-      for (var row = 0; row < rows.length; row++) {
-        for (var col = 0; col < (rows[row] as List).length; col++) {
-          final id = '${target.id}.$row.$col';
-          if (document.targets.containsKey(id)) childIds.add(id);
-        }
-      }
+      childIds.addAll(document.gridCellIds(target));
     }
-    final result = projectTargetGeometry(
-      target: target,
-      data: data,
-      measureText: measureText,
-      measureImage: measureImage,
-      parentWorld: parent?.world ?? Affine.identity,
-      parentVisible: parent?.visible ?? true,
-      parentLocked: parent?.locked ?? false,
-      parentOpacity: parent?.opacity ?? 1,
-      gridData: parent?.data,
-      item: target.type == 'item'
-          ? _items.putIfAbsent(
-              data,
-              () => ItemLayout.compile(data, measureText),
-            )
-          : null,
-    );
+    final result = sameTarget && editedRelation == null
+        ? previous!
+        : projectTargetGeometry(
+            target: target,
+            data: data,
+            measureText: measureText,
+            measureImage: measureImage,
+            parentWorld: parent?.world ?? Affine.identity,
+            parentVisible: parent?.visible ?? true,
+            parentLocked: parent?.locked ?? false,
+            parentOpacity: parent?.opacity ?? 1,
+            gridData: parent?.data,
+            item: target.type == 'item'
+                ? _items.putIfAbsent(
+                    data,
+                    () => ItemLayout.compile(data, measureText),
+                  )
+                : null,
+          );
     for (final id in childIds) {
       _element(document.targets[id]!, result);
     }

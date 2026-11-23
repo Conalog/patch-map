@@ -37,6 +37,55 @@ Future<void> release(
 
 void main() {
   testWidgets(
+    'single-tap tools resolve successive taps without a double-tap wait',
+    (tester) async {
+      final controller = PatchMapController();
+      final events = <PatchMapInputKind>[];
+      Widget mount(bool doubleTapEnabled) => Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox.square(
+            dimension: 400,
+            child: PatchMapView(
+              controller: controller,
+              gestures: PatchMapGestureOptions(
+                doubleTapEnabled: doubleTapEnabled,
+                doubleTapDragZoomEnabled: true,
+              ),
+              onEvent: (event) => events.add(event.kind),
+            ),
+          ),
+        ),
+      );
+      int taps() =>
+          events.where((kind) => kind == PatchMapInputKind.tap).length;
+      await tester.pumpWidget(mount(true));
+      await draw(tester, controller);
+      final center = tester.getCenter(find.byType(PatchMapView));
+      await tester.tapAt(center);
+      expect(taps(), 0);
+      await tester.pumpWidget(mount(false));
+      expect(taps(), 0);
+      await tester.tapAt(center);
+      await tester.tapAt(center + const Offset(35, 0));
+      await tester.pump();
+      expect(taps(), 2);
+      expect(events, isNot(contains(PatchMapInputKind.doubleTap)));
+
+      final scale = controller.camera!.scale;
+      final pair = await pinch(tester);
+      expect(controller.camera!.scale, greaterThan(scale));
+      await release(tester, pair);
+      await tester.pumpWidget(mount(true));
+      await tester.tapAt(center);
+      expect(taps(), 2);
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(taps(), 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'invalid thresholds reject initial setup and preserve valid rebuild options',
     (tester) async {
       final controller = PatchMapController();

@@ -8,7 +8,10 @@
 final class PatchMapGestureOptions {
   const PatchMapGestureOptions({
     this.zoomEnabled = true,
+    this.doubleTapEnabled = true,
     this.doubleTapDragZoomEnabled = false,
+    this.paintDragRequiresTarget = false,
+    this.paintDragRequiresLongPress = false,
     this.rotationEnabled = true,
     this.zoomThreshold = .02,
     this.zoomThresholdAfterRotation = .05,
@@ -21,9 +24,19 @@ final class PatchMapGestureOptions {
   /// Two-finger translation remains available.
   final bool zoomEnabled;
 
+  /// Recognize double taps and arbitrate them against single taps.
+  /// Disable for tools that act on each tap as soon as it resolves.
+  final bool doubleTapEnabled;
+
   /// Allow a nearby second touch to drag vertically and zoom at the viewport
   /// center in pan mode. An eligible second touch skips long-press recognition.
   final bool doubleTapDragZoomEnabled;
+
+  /// In paint mode, a press outside an eligible target pans the map.
+  final bool paintDragRequiresTarget;
+
+  /// In paint mode, drag pans until a long press has been recognized.
+  final bool paintDragRequiresLongPress;
 
   /// Enable two-finger rotation; does not gate `setCamera(rotation: ...)`.
   final bool rotationEnabled;

@@ -32,6 +32,7 @@ class MapGestureDetector extends StatelessWidget {
     super.key,
     required this.arena,
     required this.canStart,
+    required this.doubleTapEnabled,
     required this.longPressDuration,
     required this.onTap,
     required this.onDoubleTap,
@@ -44,6 +45,7 @@ class MapGestureDetector extends StatelessWidget {
 
   final MapGestureArena arena;
   final bool Function() canStart;
+  final bool doubleTapEnabled;
   final Duration longPressDuration;
   final VoidCallback onTap, onSecondaryTap, onLongPress;
   final void Function(int pointer) onDoubleTap;
@@ -54,6 +56,7 @@ class MapGestureDetector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = MediaQuery.maybeGestureSettingsOf(context);
+    if (!doubleTapEnabled) arena._doubleTap = null;
     return RawGestureDetector(
       semantics: _MapGestureSemantics(onTap, onLongPress),
       behavior: HitTestBehavior.opaque,
@@ -66,14 +69,16 @@ class MapGestureDetector extends StatelessWidget {
                 ..onTap = onTap
                 ..onSecondaryTap = onSecondaryTap,
             ),
-        MapDoubleTapRecognizer:
-            GestureRecognizerFactoryWithHandlers<MapDoubleTapRecognizer>(
-              () => arena._doubleTap = MapDoubleTapRecognizer(debugOwner: this),
-              (recognizer) => recognizer
-                ..gestureSettings = settings
-                ..canStart = canStart
-                ..onDoubleTap = onDoubleTap,
-            ),
+        if (doubleTapEnabled)
+          MapDoubleTapRecognizer:
+              GestureRecognizerFactoryWithHandlers<MapDoubleTapRecognizer>(
+                () =>
+                    arena._doubleTap = MapDoubleTapRecognizer(debugOwner: this),
+                (recognizer) => recognizer
+                  ..gestureSettings = settings
+                  ..canStart = canStart
+                  ..onDoubleTap = onDoubleTap,
+              ),
         _MapLongPressGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
               _MapLongPressGestureRecognizer

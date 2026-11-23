@@ -2,8 +2,10 @@
 library;
 
 export 'src/api/camera.dart';
+export 'src/api/edit_history.dart' show PatchMapEditHistoryState;
 export 'src/api/object_geometry.dart';
 export 'src/api/gesture_options.dart';
+export 'src/api/selection_alignment.dart';
 export 'src/api/selection_style.dart';
 export 'src/api/rotation_animation.dart';
 export 'src/api/result.dart';

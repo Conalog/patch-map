@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import '../api/target.dart';
 import '../dataset/dataset_reader.dart';
+import '../presentation/field_operations.dart' show presentationEqual;
 import '../presentation/record_delta.dart';
 import 'affine.dart';
 import 'item_data.dart';
@@ -29,11 +30,15 @@ final class GeometrySnapshot {
     DatasetDocument document,
     MeasureText measure, {
     MeasureImage? measureImage,
+    GeometrySnapshot? previous,
+    Map<String, Object?>? relationValue,
   }) {
     final initial = SceneGeometry.compile(
       document,
       measure,
       measureImage: measureImage,
+      retained: previous == null ? null : (id) => previous[id],
+      relationValue: relationValue,
     );
     final topology = GeometryTopology(document);
     final baseNodes = PagedValues<TargetGeometry>.fromList([
@@ -80,9 +85,11 @@ final class GeometrySnapshot {
     return GeometrySnapshot._(
       topology,
       nodes,
-      List.unmodifiable(
-        initial.paintOrder.map((node) => topology.slots[node.id]!),
-      ),
+      previous == null
+          ? List.unmodifiable(
+              initial.paintOrder.map((node) => topology.slots[node.id]!),
+            )
+          : topology.paintOrder(nodes),
       relations.isEmpty ? endpoints : _pageBounds(nodes, paint: false),
       paintBounds,
       endpoints,
@@ -99,9 +106,90 @@ final class GeometrySnapshot {
   final Map<String, int> _relationSlots;
   final PagedValues<RelationGeometry> _relations;
   final RelationDependencies _dependencies;
+
+  Set<String> relationIdsFor(String endpointId) =>
+      _dependencies.directIdsFor(endpointId);
+
   RelationGeometry? relationFor(String id) {
     final slot = _relationSlots[id];
     return slot == null ? null : _relations[slot];
+  }
+
+  /// A link or metadata edit preserves the slots, transforms, and draw order.
+  GeometryChange prepareRelationEdit(
+    DatasetDocument document,
+    String id,
+    Map<String, Object?> value,
+  ) {
+    final slot = topology.slots[id]!;
+    final relationSlot = _relationSlots[id]!;
+    final before = nodes[slot];
+    final oldLinks = before.data['links']! as List;
+    final newLinks = value['links']! as List;
+    final linksChanged = !presentationEqual(oldLinks, newLinks);
+    final authored = document.targets[id]!;
+    var projected = _withRecord(before, authored, value);
+    var relations = _relations;
+    var dependencies = _dependencies;
+    if (linksChanged) {
+      final relation = RelationGeometry.resolve(
+        projected,
+        targetFor: (id) => this[id],
+        endpointBounds: endpointBoundsFor,
+      );
+      projected = _withRelationBounds(projected, relation);
+      relations = relations.replace({relationSlot: relation});
+      dependencies = dependencies.replaceLinks(id, oldLinks, newLinks);
+    }
+    final changed = {slot: projected};
+    for (var parent = authored.parentId; parent != null;) {
+      final parentSlot = topology.slots[parent]!;
+      final prior = nodes[parentSlot];
+      final target = document.targets[parent]!;
+      if (!identical(prior.target, target)) {
+        changed[parentSlot] = _withRecord(
+          prior,
+          target,
+          Map.unmodifiable({
+            ...prior.data,
+            'children': target.data['children'],
+          }),
+        );
+      }
+      parent = target.parentId;
+    }
+    final next = nodes.replace(changed);
+    final page = slot ~/ nodes.pageSize;
+    List<Rect?> updated(List<Rect?> previous, {required bool paint}) {
+      final bounds = _aggregate(next.pages[page], paint: paint);
+      if (bounds == previous[page]) return previous;
+      return List.unmodifiable(List<Rect?>.of(previous)..[page] = bounds);
+    }
+
+    final bounds = before.visible && before.bounds != projected.bounds
+        ? updated(_bounds, paint: false)
+        : _bounds;
+    final paintBounds =
+        before.visible && before.paintBounds != projected.paintBounds
+        ? updated(_paintBounds, paint: true)
+        : _paintBounds;
+    if (!identical(paintBounds, _paintBounds)) {
+      _validateUpdatedEnvelope(paintBounds, changed: changed, roots: [slot]);
+    }
+    return GeometryChange(
+      GeometrySnapshot._(
+        topology,
+        next,
+        paintSlots,
+        bounds,
+        paintBounds,
+        _endpointBounds,
+        _relationSlots,
+        relations,
+        dependencies,
+      ),
+      Map.unmodifiable(changed),
+    );
   }
 
   /// Logical endpoint bounds exclude relation paths, like release's endpoint
@@ -641,6 +729,8 @@ bool _sameRelationStyleGeometry(
 ) {
   final oldStyle = before['style']! as Map, newStyle = after['style']! as Map;
   return oldStyle['width'] == newStyle['width'] &&
+      (oldStyle['showSelfLinks'] != false) ==
+          (newStyle['showSelfLinks'] != false) &&
       const [
         'startMarker',
         'endMarker',
@@ -668,8 +758,8 @@ final class GeometryChange {
   final Map<int, int> fields;
 }
 
-/// Structural topology is fixed until replacement. Slots are stable preorder
-/// identities, independent of visual sibling z-order.
+/// Slots are preorder identities, independent of visual sibling z-order.
+/// Appending and removing trailing roots preserves surviving slots.
 final class GeometryTopology {
   GeometryTopology(DatasetDocument document) {
     void add(String id, int? parent) {
@@ -685,7 +775,7 @@ final class GeometryTopology {
               (value) => value['id']! as String,
             )
           : target.type == 'grid'
-          ? _gridChildren(document, target)
+          ? document.gridCellIds(target)
           : const <String>[];
       for (final child in childIds) {
         _children[slot].add(_ids.length);
@@ -731,19 +821,6 @@ final class GeometryTopology {
 
     visit(_roots);
     return List.unmodifiable(result);
-  }
-}
-
-Iterable<String> _gridChildren(
-  DatasetDocument document,
-  DatasetTarget grid,
-) sync* {
-  final rows = grid.data['cells']! as List;
-  for (var r = 0; r < rows.length; r++) {
-    for (var c = 0; c < (rows[r] as List).length; c++) {
-      final id = '${grid.id}.$r.$c';
-      if (document.targets.containsKey(id)) yield id;
-    }
   }
 }
 
@@ -815,15 +892,22 @@ Rect? _rangeBounds(
 TargetGeometry _withRelationBounds(
   TargetGeometry node,
   RelationGeometry relation,
-) => TargetGeometry(
-  target: node.target,
-  data: node.data,
+) => _withRecord(node, node.target, node.data, relation: relation);
+
+TargetGeometry _withRecord(
+  TargetGeometry node,
+  DatasetTarget target,
+  Map<String, Object?> data, {
+  RelationGeometry? relation,
+}) => TargetGeometry(
+  target: target,
+  data: data,
   world: node.world,
   visible: node.visible,
   opacity: node.opacity,
   locked: node.locked,
-  bounds: relation.bounds,
-  paintBounds: relation.paintBounds,
+  bounds: relation == null ? node.bounds : relation.bounds,
+  paintBounds: relation == null ? node.paintBounds : relation.paintBounds,
   item: node.item,
   localBounds: node.localBounds,
 );

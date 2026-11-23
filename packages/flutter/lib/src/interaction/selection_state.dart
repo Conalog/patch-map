@@ -9,8 +9,7 @@ final class SelectionResult {
   final List<String> missing;
 }
 
-/// Single ID authority. Input recognition never implicitly changes selection;
-/// direct commands validate identities but deliberately bypass the input filter.
+/// Single ID authority. Direct commands validate identities but bypass filters.
 final class SelectionState {
   SelectionState({
     required this.currentGeometry,
@@ -21,6 +20,11 @@ final class SelectionState {
   final InputQuery query;
   final void Function(PatchMapInputEvent event) notify;
   final _ids = <String>{};
+  bool allowContainers = false;
+  bool get hasContainers => _hasContainers;
+  bool _hasContainers = false;
+  int get revision => _revision;
+  int _revision = 0;
   // Only selected public JSON objects are retained, never nodes or layouts.
   List<PatchMapObject> _selected = const [];
   bool _disposed = false;
@@ -110,7 +114,8 @@ final class SelectionState {
     final accepted = <String>{}, missing = <String>[];
     for (final id in input.toSet()) {
       final node = snapshot?[id];
-      if (node == null || node.isContainer) {
+      if (node == null ||
+          node.isContainer && !allowContainers && !_ids.contains(id)) {
         missing.add(id);
       } else {
         accepted.add(id);
@@ -154,10 +159,14 @@ final class SelectionState {
     _ids
       ..clear()
       ..addAll(next);
+    if (allowContainers || _hasContainers) {
+      _hasContainers = _ids.any((id) => snapshot?[id]?.isContainer == true);
+    }
     final result = snapshot == null
         ? _selected = const <PatchMapObject>[]
         : _projectSelected(snapshot);
     if (added.isNotEmpty || removed.isNotEmpty) {
+      _revision++;
       notify(
         PatchMapInputEvent(
           kind: PatchMapInputKind.selectionChange,

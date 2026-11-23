@@ -27,6 +27,20 @@ or paint failure stops that generation and settles all outstanding requests with
 the whole-map failure. Ordinary updates cannot restart it; only a new accepted
 replacement starts recovery.
 
+The generation owns one editor history. Position and structural edits share
+the publication drain and matching frame acknowledgement. Selection-only
+replay advances the cursor and restores IDs without a dataset revision.
+External writes to retained position axes clear both branches. During inactivity,
+the published cursor and scene retain their common submission obligation.
+
+Validate structural inputs at admission. Earlier value batches run before the
+edit and later batches after it, including across suspension. In-place relation
+edits retain topology and paint order. Link changes update the edited geometry
+and reverse endpoint memberships. History stores changed fragments and selection
+IDs. Replay checks edited fields and unlocked ancestors. Structural edits reject
+competing writes and discard live and presentation values for removed targets.
+Failure before publication preserves the scene, selection and history cursor.
+
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.
 Reset barriers and subsequent child-field sets are kept as operations, not an

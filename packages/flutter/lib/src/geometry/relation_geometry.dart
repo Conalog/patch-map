@@ -63,6 +63,7 @@ final class RelationGeometry {
     TargetGeometry node, {
     required TargetGeometry? Function(String id) targetFor,
     required RelationEndpointBounds endpointBounds,
+    List<Map<String, Object?>>? links,
   }) {
     if (node.target.type != 'relations') {
       throw ArgumentError('expected relations target');
@@ -83,7 +84,9 @@ final class RelationGeometry {
     final width = (style['width'] as num?)?.toDouble() ?? 1;
     final startMarker = style['startMarker'] as String? ?? 'none';
     final endMarker = style['endMarker'] as String? ?? 'none';
+    final showSelfLinks = style['showSelfLinks'] != false;
     final paths = <RelationPath>[];
+    Rect? hiddenSelfBounds;
     final boundsCache = <String, Rect?>{};
     Rect? bounds(String id) => boundsCache.putIfAbsent(id, () {
       final endpoint = targetFor(id);
@@ -92,7 +95,8 @@ final class RelationGeometry {
       return endpointBounds(id);
     });
     for (final link
-        in (node.data['links']! as List).cast<Map<String, Object?>>()) {
+        in links ??
+            (node.data['links']! as List).cast<Map<String, Object?>>()) {
       final fromId = link['source']! as String,
           toId = link['target']! as String;
       final from = targetFor(fromId), to = targetFor(toId);
@@ -107,6 +111,10 @@ final class RelationGeometry {
       }
       final source = bounds(fromId), target = bounds(toId);
       if (source == null || target == null) continue;
+      if (!showSelfLinks && fromId == toId) {
+        hiddenSelfBounds = unionBounds(hiddenSelfBounds, source);
+        continue;
+      }
       final worldPoints = fromId == toId
           ? _selfLoop(source)
           : [source.center, target.center];
@@ -200,6 +208,8 @@ final class RelationGeometry {
         );
       }
     }
+    // A membership-only relation still has a selection and focus location.
+    logicalBounds ??= hiddenSelfBounds;
     if (logicalBounds != null) validateBounds(logicalBounds);
     final worldQuads = [for (final quad in quads) _project(node.world, quad)];
     for (final quad in worldQuads) {
@@ -396,6 +406,64 @@ final class RelationDependencies {
   final Set<String> _relations;
   final Map<String, Set<String>> _direct, _descendant;
   Set<String> get relationIds => _relations;
+  Set<String> directIdsFor(String endpointId) =>
+      _direct[endpointId] ?? const {};
+
+  RelationDependencies replaceLinks(String relation, List before, List after) {
+    Set<String> endpoints(List links) => {
+      for (final link in links.cast<Map<String, Object?>>()) ...[
+        link['source']! as String,
+        link['target']! as String,
+      ],
+    };
+    Set<String> ancestors(Set<String> ids) {
+      final result = <String>{};
+      for (final id in ids) {
+        var slot = _topology.slots[id];
+        while (slot != null) {
+          slot = _topology.parents[slot];
+          if (slot == null || !result.add(_topology.ids[slot])) break;
+        }
+      }
+      return result;
+    }
+
+    Map<String, Set<String>> replace(
+      Map<String, Set<String>> index,
+      Set<String> oldKeys,
+      Set<String> newKeys,
+    ) {
+      final removed = oldKeys.difference(newKeys);
+      final added = newKeys.difference(oldKeys);
+      if (removed.isEmpty && added.isEmpty) return index;
+      final next = Map<String, Set<String>>.of(index);
+      for (final key in removed) {
+        final members = index[key]!.where((member) => member != relation);
+        if (members.isEmpty) {
+          next.remove(key);
+        } else {
+          next[key] = Set.unmodifiable(members);
+        }
+      }
+      for (final key in added) {
+        final members = [...?index[key], relation]
+          ..sort((a, b) => _topology.slots[a]!.compareTo(_topology.slots[b]!));
+        next[key] = Set.unmodifiable(members);
+      }
+      return Map.unmodifiable(next);
+    }
+
+    final oldEndpoints = endpoints(before), newEndpoints = endpoints(after);
+    final direct = replace(_direct, oldEndpoints, newEndpoints);
+    if (identical(direct, _direct)) return this;
+    return RelationDependencies._(
+      _topology,
+      _relations,
+      direct,
+      replace(_descendant, ancestors(oldEndpoints), ancestors(newEndpoints)),
+    );
+  }
+
   Set<String> affectedIds(Iterable<String> changedIds) {
     final result = <String>{}, visited = <String>{};
     final pending = changedIds.toList();

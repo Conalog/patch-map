@@ -189,6 +189,74 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('target-gated paint requires a hold before dragging', (
+    tester,
+  ) async {
+    final controller = PatchMapController(), events = <PatchMapInputEvent>[];
+    await tester.pumpWidget(
+      host(
+        controller,
+        events,
+        dragMode: PatchMapDragMode.paint,
+        gestures: const PatchMapGestureOptions(
+          doubleTapEnabled: false,
+          paintDragRequiresTarget: true,
+          paintDragRequiresLongPress: true,
+        ),
+      ),
+    );
+    await draw(tester, controller);
+    const pan = Offset(45, 0);
+    final center = tester.getCenter(find.byType(PatchMapView));
+    controller.setCamera(center: const Offset(50, 50), scale: 1);
+    final initial = controller.camera!;
+    final quickDrag = await tester.startGesture(center);
+    await tester.pump(const Duration(milliseconds: 299));
+    await quickDrag.moveBy(pan);
+    await tester.pump(const Duration(milliseconds: 50));
+    await quickDrag.up();
+    expect(holds(events), isEmpty);
+    expect(events.last.mode, PatchMapDragMode.pan);
+    expect(controller.camera!.center, isNot(initial.center));
+
+    controller.setCamera(center: initial.center, scale: 1);
+    events.clear();
+    final holdOnly = await tester.startGesture(center);
+    await tester.pump(const Duration(milliseconds: 300));
+    await holdOnly.up();
+    expect(holds(events).single.target?.id, 'a');
+    expect(
+      events.where((event) => event.kind == PatchMapInputKind.tap),
+      isEmpty,
+    );
+    expect(
+      events.where((event) => event.kind == PatchMapInputKind.dragStart),
+      isEmpty,
+    );
+
+    events.clear();
+    final holdAndDrag = await tester.startGesture(center);
+    await tester.pump(const Duration(milliseconds: 300));
+    await holdAndDrag.moveBy(pan);
+    await holdAndDrag.up();
+    final start = events.singleWhere(
+      (event) => event.kind == PatchMapInputKind.dragStart,
+    );
+    expect(start.target?.id, 'a');
+    expect(start.mode, PatchMapDragMode.paint);
+    expect(events.last.objects.map((object) => object.id), ['a']);
+    expect(controller.camera!.center, initial.center);
+
+    final blankHold = await tester.startGesture(center - const Offset(90, 0));
+    await tester.pump(const Duration(milliseconds: 300));
+    await blankHold.moveBy(const Offset(100, 0));
+    await blankHold.up();
+    expect(events.last.mode, PatchMapDragMode.pan);
+    expect(events.last.objects, isEmpty);
+    expect(controller.camera!.center, isNot(initial.center));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('slow pinch survives the hold deadline and a value update', (
     tester,
   ) async {

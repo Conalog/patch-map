@@ -9,6 +9,7 @@ import '../presentation/presentation_layers.dart';
 import 'bar_slices.dart';
 import 'draw_objects.dart';
 import 'rectangle_paint.dart';
+import 'relation_paint.dart';
 import 'static_geometry.dart';
 
 /// One publication's ordered draw plan. Owns its pages and shared static chunks;
@@ -65,8 +66,7 @@ final class RenderPlan {
         pages[slot ~/ geometry.nodes.pageSize].nodes[slot %
             geometry.nodes.pageSize];
     _Member? member(int slot) {
-      if (previous != null &&
-          identical(previous.geometry.topology, geometry.topology)) {
+      if (previous != null) {
         final old = previous._chunkFor(slot);
         if (old != null && identical(node(slot), previous._node(slot))) {
           return old.members[previous._slotChunks[slot] % 100];
@@ -376,6 +376,7 @@ final class RenderPlan {
     required double cameraRotation,
     required double physicalScale,
     Rect? Function(int slot, String componentId, int axes)? barRectangle,
+    RelationPaintOverride? relationPreview,
   }) {
     if (_disposed) throw StateError('Render plan is disposed');
     final alignedAxes = ReadableRectBasis.resolveAxes(
@@ -392,6 +393,7 @@ final class RenderPlan {
         physicalScale,
         barRectangle,
         presentation,
+        relationPreview,
       );
       return;
     }
@@ -419,6 +421,7 @@ final class RenderPlan {
               alignedAxes,
               physicalScale,
               barRectangle,
+              relationPreview: relationPreview,
             );
           }
           continue;
@@ -466,6 +469,7 @@ final class RenderPlan {
     double scale,
     Rect? Function(int, String, int)? rectangle,
     PresentationOpacity presentation,
+    RelationPaintOverride? relationPreview,
   ) {
     try {
       var cursor = 0;
@@ -491,6 +495,7 @@ final class RenderPlan {
               scale,
               rectangle,
               presentation: presentation,
+              relationPreview: relationPreview,
             );
           }
           continue;
@@ -621,10 +626,19 @@ final class RenderPlan {
     double scale,
     Rect? Function(int, String, int)? rectangle, {
     PresentationOpacity? presentation,
+    RelationPaintOverride? relationPreview,
   }) {
     final node = _node(slot);
     if (!node.geometry.visible || node.geometry.opacity == 0) return;
     if (node.geometry.item == null) {
+      if (relationPreview != null && relationPreview.slot == slot) {
+        _bars.flush(canvas);
+        relationPreview.drawing.paint(
+          canvas,
+          alphaMultiplier: presentation?.alpha(node.geometry.id) ?? 1,
+        );
+        return;
+      }
       node.paintStandalone(
         canvas,
         cameraRotation: rotation,

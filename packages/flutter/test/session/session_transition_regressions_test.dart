@@ -39,6 +39,7 @@ class Backend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) async {
     updates++;
     lastChanges = changes;
@@ -91,6 +92,110 @@ Future<void> ready(MapSession s, Backend b) async {
 }
 
 void main() {
+  test(
+    'resume keeps value batches on their original side of an edit',
+    () async {
+      final backend = Backend();
+      final session = make(backend);
+      addTearDown(session.close);
+      await ready(session, backend);
+      final earlier = session.update(const [
+        PatchMapUpdate(target, {'text': '1'}),
+      ]);
+      final move = session.move(
+        const [
+          PatchMapUpdate(target, {
+            'attrs': {'x': 100},
+          }),
+        ],
+        () => true,
+        () {},
+      );
+      final later = session.update(const [
+        PatchMapUpdate(target, {'text': '2'}),
+      ]);
+
+      await flush();
+      final beforeMove = backend.stamp!;
+      expect(session.current(target)!['text'], '1');
+      session.setActive(false);
+      session.setActive(true);
+      await flush();
+      expect(backend.stamp, same(beforeMove));
+      session.didSubmit(beforeMove);
+      expect((await earlier).outcome, PatchMapOutcome.applied);
+
+      await flush();
+      final publishedMove = backend.stamp!;
+      expect(publishedMove.revision, greaterThan(beforeMove.revision));
+      expect(session.current(target)!['text'], '1');
+      expect(session.current(target)!['attrs'], containsPair('x', 100));
+      session.setActive(false);
+      session.setActive(true);
+      await flush();
+      expect(backend.stamp!.revision, greaterThan(publishedMove.revision));
+      expect(session.current(target)!['text'], '2');
+      expect(session.current(target)!['attrs'], containsPair('x', 100));
+      session.didSubmit(backend.stamp!);
+      expect((await move).outcome, PatchMapOutcome.applied);
+      expect((await later).outcome, PatchMapOutcome.applied);
+    },
+  );
+
+  test(
+    'a failed move candidate leaves the submitted revision intact',
+    () async {
+      final backend = Backend();
+      final session = make(backend);
+      addTearDown(session.close);
+      const other = PatchMapTarget('other');
+      final drawing = session.replace([
+        ...scene,
+        {'type': 'text', 'id': other.id, 'text': '1'},
+      ]);
+      await flush();
+      final before = backend.stamp!;
+      session.didSubmit(before);
+      await drawing;
+
+      const failure = PatchMapFailure('INVALID_GEOMETRY', 'related geometry');
+      backend.failures = {
+        'dependent-relation': [failure],
+      };
+      var published = false;
+      final move = session.move(
+        const [
+          PatchMapUpdate(target, {
+            'attrs': {'x': 100},
+          }),
+          PatchMapUpdate(other, {
+            'attrs': {'x': 200},
+          }),
+        ],
+        () => true,
+        () => published = true,
+      );
+      await flush();
+      expect(backend.lastChanges.keys, containsAll([target, other]));
+      expect(backend.stamp, same(before));
+      expect(session.current(target)!['attrs'], isNull);
+      expect(session.current(other)!['attrs'], isNull);
+      expect(published, isFalse);
+      final result = await move;
+      expect(result.outcome, PatchMapOutcome.rejected);
+      expect(result.failures, [failure]);
+
+      backend.failures = {};
+      final next = session.update(const [
+        PatchMapUpdate(target, {'text': '2'}),
+      ]);
+      await flush();
+      session.didSubmit(backend.stamp!);
+      expect((await next).outcome, PatchMapOutcome.applied);
+      expect(session.current(target)!['text'], '2');
+    },
+  );
+
   test(
     'inactive cross-field validation reads the latest composed pending index',
     () async {

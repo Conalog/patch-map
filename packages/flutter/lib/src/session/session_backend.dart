@@ -59,6 +59,13 @@ abstract class SessionBackend {
     int generation,
   );
 
+  /// Prepare authored structural changes with the retained values and resources.
+  Future<SessionPublication> prepareStructure(
+    SessionPublication before,
+    DatasetDocument document, {
+    Map<String, Object?>? relationValue,
+  }) => Future.error(UnsupportedError('Structural editing is unavailable'));
+
   /// A respecified failed source is work even when its scalar value is equal.
   bool needsRetry(SessionPublication publication, PresentationPatch patch) =>
       false;
@@ -72,6 +79,7 @@ abstract class SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   });
 
   /// Serializes intrinsic-image geometry refresh with ordinary preparations.

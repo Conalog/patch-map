@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:conalog_patch_map/src/api/edit_history.dart';
 import 'package:conalog_patch_map/src/api/result.dart';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/api/update.dart';
@@ -50,11 +51,134 @@ List<Object?> _scene([String first = 'a']) => [
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
-  _Harness make() {
-    final harness = _Harness();
+  _Harness make({int editHistoryLimit = 0}) {
+    final harness = _Harness(editHistoryLimit: editHistoryLimit);
     addTearDown(harness.dispose);
     return harness;
   }
+
+  test('replays selection without a dataset publication', () async {
+    final h = make(editHistoryLimit: 50);
+    await h.ready();
+    final publications = h.backend.published.length;
+    expect(h.session.recordSelection(['a'], ['b']), isTrue);
+    expect(h.session.recordSelection(['a', 'b'], ['b', 'a']), isFalse);
+    final restored = <List<String>>[];
+    for (final redo in [false, true]) {
+      final result = await h.session.replayEdit(
+        redo: redo,
+        canMove: (_) => fail('selection history does not move objects'),
+        restoreSelection: restored.add,
+      );
+      expect(result.result.outcome, PatchMapOutcome.applied);
+      expect(result.positions, isEmpty);
+    }
+    expect(restored, [
+      ['a'],
+      ['b'],
+    ]);
+    expect(h.backend.published.length, publications);
+  });
+
+  test(
+    'keeps one edit and completion across suspension before paint',
+    () async {
+      final h = make(editHistoryLimit: 50);
+      await h.ready();
+      var settled = false;
+      final move = h.session
+          .move(
+            const [
+              PatchMapUpdate(PatchMapTarget('a'), {
+                'attrs': {'x': 30},
+              }),
+            ],
+            () => true,
+            () {},
+          )
+          .whenComplete(() => settled = true);
+      await _tick();
+      h.backend.updates.last.complete();
+      await _tick();
+      expect(h.session.editHistoryState.undoDepth, 1);
+      expect(h.session.editHistoryState.isBusy, isTrue);
+      expect(h.history.any((state) => state.canUndo), isFalse);
+      expect(settled, isFalse);
+
+      h.session.setActive(false);
+      final update = h.session.update(const [
+        PatchMapUpdate(_aText, {'text': 'fresh'}),
+      ]);
+      h.session.setActive(true);
+      await _tick();
+      h.backend.updates.last.complete();
+      await _tick();
+      expect(settled, isFalse);
+      h.submit();
+      expect((await move).outcome, PatchMapOutcome.applied);
+      expect((await update).outcome, PatchMapOutcome.applied);
+      await _tick();
+      expect(h.history.where((state) => state.canUndo).single.undoDepth, 1);
+
+      final undo = h.session.replayEdit(
+        redo: false,
+        canMove: (_) => true,
+        restoreSelection: (_) {},
+      );
+      await _tick();
+      h.backend.updates.last.complete();
+      await _tick();
+      h.submit();
+      expect((await undo).result.outcome, PatchMapOutcome.applied);
+      expect(
+        (h.session.current(const PatchMapTarget('a'))!['attrs'] as Map)['x'],
+        0,
+      );
+      expect(h.session.current(_aText)!['text'], 'fresh');
+      expect(h.session.editHistoryState.canRedo, isTrue);
+    },
+  );
+
+  test(
+    'refuses replay interrupted before publication and keeps history',
+    () async {
+      final h = make(editHistoryLimit: 2);
+      await h.ready();
+      final move = h.session.move(
+        const [
+          PatchMapUpdate(PatchMapTarget('a'), {
+            'attrs': {'x': 30},
+          }),
+        ],
+        () => true,
+        () {},
+      );
+      await _tick();
+      h.backend.updates.last.complete();
+      await _tick();
+      h.submit();
+      await move;
+
+      final undo = h.session.replayEdit(
+        redo: false,
+        canMove: (_) => true,
+        restoreSelection: (_) =>
+            fail('rejected history must not change selection'),
+      );
+      await _tick();
+      h.session.setActive(false);
+      h.session.setActive(true);
+      h.backend.updates.last.complete();
+      await _tick();
+      expect((await undo).result.failures.single.code, 'MOVE_CONFLICT');
+      expect(h.session.editHistoryState.undoDepth, 1);
+      expect(h.session.editHistoryState.canUndo, isTrue);
+      expect(
+        (h.session.current(const PatchMapTarget('a'))!['attrs'] as Map)['x'],
+        30,
+      );
+    },
+  );
 
   test(
     'invalid replacement preserves accepted generation and submitted drawing',
@@ -702,11 +826,13 @@ void main() {
 }
 
 class _Harness {
-  _Harness() {
+  _Harness({required int editHistoryLimit}) {
     session = MapSession(
       backend: backend,
       invalidate: () => invalidations++,
       onPhase: (phase, failure) => phases.add(phase),
+      editHistoryLimit: editHistoryLimit,
+      onEditHistoryChanged: history.add,
       onCallbackError: (error, stack) {
         callbackErrors.add(error);
         if (throwFromReporter) {
@@ -718,6 +844,7 @@ class _Harness {
   final backend = _Backend();
   late final MapSession session;
   final phases = <PatchMapPhase>[];
+  final history = <PatchMapEditHistoryState>[];
   final callbackErrors = <Object>[];
   var invalidations = 0;
   var throwFromReporter = false;
@@ -902,6 +1029,7 @@ class _Backend extends SessionBackend {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
+    bool atomic = false,
   }) {
     final work = _UpdateWork(
       this,

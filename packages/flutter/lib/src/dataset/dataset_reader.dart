@@ -8,8 +8,109 @@ export 'dataset_values.dart' show DatasetException;
 /// Detached normalized authored data and an immutable concrete identity index.
 class DatasetDocument {
   DatasetDocument._(this.roots, this.targets);
+
+  /// Retain the published target identity for addition history replay.
+  factory DatasetDocument.relationRoot(DatasetTarget relation) =>
+      DatasetDocument._(
+        List.unmodifiable([relation.data]),
+        Map.unmodifiable({relation.id: relation}),
+      );
   final List<Map<String, Object?>> roots;
   final Map<String, DatasetTarget> targets;
+
+  Iterable<String> gridCellIds(DatasetTarget grid) sync* {
+    final rows = grid.data['cells']! as List;
+    for (var row = 0; row < rows.length; row++) {
+      final cells = rows[row] as List;
+      for (var col = 0; col < cells.length; col++) {
+        final id = '${grid.id}.$row.$col';
+        if (targets[id]?.parentId == grid.id) yield id;
+      }
+    }
+  }
+
+  DatasetDocument append(DatasetDocument added) {
+    for (final id in added.targets.keys) {
+      if (targets.containsKey(id)) {
+        throw DatasetException('DUPLICATE_ID', id, 'duplicate element ID $id');
+      }
+    }
+    return DatasetDocument._(
+      List.unmodifiable([...roots, ...added.roots]),
+      Map.unmodifiable({...targets, ...added.targets}),
+    );
+  }
+
+  DatasetDocument removeAppended(DatasetDocument added) {
+    final start = roots.length - added.roots.length;
+    if (start < 0 ||
+        !roots
+            .skip(start)
+            .indexed
+            .every((entry) => entry.$2['id'] == added.roots[entry.$1]['id'])) {
+      throw DatasetException(
+        'EDIT_CONFLICT',
+        r'$',
+        'the added roots are no longer the last roots',
+      );
+    }
+    return DatasetDocument._(
+      List.unmodifiable(roots.take(start)),
+      Map.unmodifiable({
+        for (final entry in targets.entries)
+          if (!added.targets.containsKey(entry.key)) entry.key: entry.value,
+      }),
+    );
+  }
+
+  int indexOf(DatasetTarget target) => _childrenOf(
+    target.parentId,
+  ).indexWhere((child) => child['id'] == target.id);
+
+  DatasetDocument changeRelation(
+    String id, {
+    required String? parentId,
+    required int index,
+    required DatasetTarget? replacement,
+  }) {
+    final nextTargets = Map<String, DatasetTarget>.of(targets);
+    final siblings = _childrenOf(parentId).toList();
+    if (targets.containsKey(id)) siblings.removeAt(index);
+    if (replacement == null) {
+      nextTargets.remove(id);
+    } else {
+      siblings.insert(index, replacement.data);
+      nextTargets[id] = replacement;
+    }
+
+    List<Map<String, Object?>> replaceChildren(
+      String? groupId,
+      List<Map<String, Object?>> children,
+    ) {
+      if (groupId == null) return List.unmodifiable(children);
+      final group = nextTargets[groupId]!;
+      final updated = DatasetTarget(
+        id: groupId,
+        type: 'group',
+        parentId: group.parentId,
+        data: frozen({...group.data, 'children': List.unmodifiable(children)}),
+      );
+      nextTargets[groupId] = updated;
+      final parents = _childrenOf(group.parentId).toList();
+      parents[indexOf(group)] = updated.data;
+      return replaceChildren(group.parentId, parents);
+    }
+
+    return DatasetDocument._(
+      replaceChildren(parentId, siblings),
+      Map.unmodifiable(nextTargets),
+    );
+  }
+
+  List<Map<String, Object?>> _childrenOf(String? groupId) => groupId == null
+      ? roots
+      : (targets[groupId]!.data['children']! as List)
+            .cast<Map<String, Object?>>();
 }
 
 class DatasetTarget {
@@ -37,6 +138,24 @@ class DatasetTarget {
 class DatasetReader {
   const DatasetReader();
   DatasetDocument read(Object? input) => _Candidate().read(input);
+
+  DatasetDocument readForAppend(
+    List<Map<String, Object?>> objects,
+    DatasetDocument current,
+  ) => _Candidate(
+    existingTargets: current.targets,
+  ).read(objects, rootOffset: current.roots.length);
+
+  DatasetTarget readRelation(Map<String, Object?> input, String? parentId) {
+    final candidate = _Candidate();
+    final data = candidate._element(input, r'$.relation', parentId);
+    return candidate._targets[data['id']]!;
+  }
+
+  List<Map<String, Object?>> readRelationLinks(
+    Object? input, {
+    Map<(String, String), Map<String, Object?>>? interned,
+  }) => _links(input, r'$.relation.links', interned: interned);
 }
 
 const _elementBase = ['type', 'id', 'label', 'show', 'locked', 'attrs'];
@@ -66,17 +185,71 @@ const _components = {
 };
 
 class _Candidate {
+  _Candidate({Map<String, DatasetTarget>? existingTargets})
+    : _existingTargets = existingTargets;
+
+  final Map<String, DatasetTarget>? _existingTargets;
   final _ids = <String>{};
+  Set<String> _authoredIds = const {};
   final _targets = <String, DatasetTarget>{};
   final _ancestors = HashSet<Object>.identity();
 
-  DatasetDocument read(Object? input) {
+  DatasetDocument read(Object? input, {int rootOffset = 0}) {
     final values = array(input, r'$');
+    if (_existingTargets != null) _authoredIds = _readAuthoredIds(values);
     final roots = List<Map<String, Object?>>.unmodifiable([
       for (var i = 0; i < values.length; i++)
-        _element(values[i], '\$[$i]', null),
+        _element(values[i], '\$[${rootOffset + i}]', null),
     ]);
     return DatasetDocument._(roots, Map.unmodifiable(_targets));
+  }
+
+  Set<String> _readAuthoredIds(List<Object?> values) {
+    final ids = <String>{};
+    final visited = HashSet<Object>.identity();
+    void reserve(Object? value) {
+      if (value is! Map || !visited.add(value)) return;
+      if (value['id'] case final String id) ids.add(id);
+      if (value['type'] == 'group') {
+        final children = value['children'];
+        if (children is List) children.forEach(reserve);
+      }
+    }
+
+    values.forEach(reserve);
+    return ids;
+  }
+
+  String _generatedId(String path, String type, Map<String, Object?> input) {
+    final base = '@element:$path';
+    if (_existingTargets == null) return base;
+    var id = base;
+    for (
+      var suffix = 1;
+      _idInUse(id) || (type == 'grid' && _gridCellsInUse(id, input));
+      suffix++
+    ) {
+      id = '$base#$suffix';
+    }
+    return id;
+  }
+
+  bool _idInUse(String id) =>
+      _existingTargets!.containsKey(id) ||
+      _authoredIds.contains(id) ||
+      _ids.contains(id);
+
+  bool _gridCellsInUse(String id, Map<String, Object?> input) {
+    final rows = input['cells'];
+    if (rows is! List) return false;
+    final keepInactive = input['inactiveCellStrategy'] == 'hide';
+    for (final (r, row) in rows.indexed) {
+      if (row is! List) continue;
+      for (final (c, cell) in row.indexed) {
+        if ((cell != 0 || keepInactive) && _idInUse('$id.$r.$c')) return true;
+      }
+    }
+    return false;
   }
 
   void _register(String id, String path) {
@@ -99,7 +272,7 @@ class _Candidate {
       known(input, [..._elementBase, ..._elements[type]!], path);
       final id = input.containsKey('id')
           ? string(input['id'], '$path.id')
-          : '@element:$path';
+          : _generatedId(path, type, input);
       _register(id, '$path.id');
       final result = <String, Object?>{
         'type': type,
@@ -419,7 +592,11 @@ String _orientation(Map<String, Object?> input, String path) => _enum(
   ['follow-item', 'upright'],
   'upright',
 );
-List<Map<String, Object?>> _links(Object? value, String path) {
+List<Map<String, Object?>> _links(
+  Object? value,
+  String path, {
+  Map<(String, String), Map<String, Object?>>? interned,
+}) {
   final values = array(value, path);
   final seen = <(String, String)>{};
   final result = <Map<String, Object?>>[];
@@ -430,7 +607,13 @@ List<Map<String, Object?>> _links(Object? value, String path) {
     final source = _endpoint(required(input, 'source', p), '$p.source');
     final target = _endpoint(required(input, 'target', p), '$p.target');
     if (seen.add((source, target))) {
-      result.add(frozen({'source': source, 'target': target}));
+      result.add(
+        interned?.putIfAbsent((
+              source,
+              target,
+            ), () => frozen({'source': source, 'target': target})) ??
+            frozen({'source': source, 'target': target}),
+      );
     }
   }
   return List.unmodifiable(result);

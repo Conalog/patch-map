@@ -28,10 +28,10 @@ The map rejects a pending hold in the arena on second-pointer down, allowing slo
 It tracks until all pointers end; remaining fingers cannot rearm. Recognized holds retain their lifecycle.
 
 Both gesture permissions default to true. `zoomEnabled` gates pinch, wheel and
-[one-finger zoom](double-tap-drag-zoom.md); `rotationEnabled` gates two-finger rotation. Explicit `setCamera`, fit
-and focus commands remain available. Translation remains available even with
-both flags false; the existing single-pointer `dragMode` still owns pan/range/
-paint behavior. Two-finger translation retains the prior camera behavior.
+[one-finger zoom](double-tap-drag-zoom.md), and `rotationEnabled` gates two-finger rotation.
+Camera commands and translation remain available. Single-pointer `dragMode` owns
+pan/range/paint. Paint reports the original hit at `dragStart`.
+`paintDragRequiresTarget` pans on a miss and `paintDragRequiresLongPress` before a hold.
 
 Pinch and rotation capture their permissions and thresholds at `onScaleStart`.
 A rebuild affects the next pinch or rotation. Wheel uses the current zoom

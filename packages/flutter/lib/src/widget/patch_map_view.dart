@@ -5,14 +5,20 @@ import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/edit_history.dart';
 import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
+import '../api/selection_alignment.dart';
 import '../api/selection_style.dart';
 import '../api/rotation_animation.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
+import '../interaction/edit_placement.dart';
 import '../interaction/input_query.dart';
+import '../interaction/long_press_edit.dart';
+import '../interaction/selection_alignment.dart';
+import '../interaction/selection_state.dart';
 import '../interaction/touch_camera_gesture.dart';
 import '../api/target.dart';
 import '../api/update.dart';
@@ -49,6 +55,11 @@ class PatchMapView extends StatefulWidget {
     this.onGestureRotation,
     this.eventFilter,
     this.dragMode = PatchMapDragMode.pan,
+    this.longPressEditEnabled = false,
+    this.editTargetResolver,
+    this.onMoveResult,
+    this.editHistoryLimit = 0,
+    this.onEditHistoryChanged,
     this.gestures = const PatchMapGestureOptions(),
     this.zoomLimits = const PatchMapZoomLimits(),
     this.selectionStyle = const PatchMapSelectionStyle(),
@@ -72,6 +83,22 @@ class PatchMapView extends StatefulWidget {
   final ValueChanged<double>? onGestureRotation;
   final bool Function(PatchMapObject object)? eventFilter;
   final PatchMapDragMode dragMode;
+
+  /// Opt in to long-press range selection and object translation.
+  final bool longPressEditEnabled;
+
+  /// Maps an eligible hit to a movable element ID. The default uses a cell's
+  /// grid ID or the hit's own ID. Return null to skip a hit. This is a filter:
+  /// do not issue map commands from it.
+  final String? Function(PatchMapObject hit)? editTargetResolver;
+
+  /// A released move's result. Success follows submission of the new position.
+  final ValueChanged<PatchMapMoveResult>? onMoveResult;
+
+  /// Retained editor actions per diagram. Zero disables history. Set at mount.
+  final int editHistoryLimit;
+  final ValueChanged<PatchMapEditHistoryState>? onEditHistoryChanged;
+
   final PatchMapGestureOptions gestures;
   final PatchMapZoomLimits zoomLimits;
   final PatchMapSelectionStyle selectionStyle;
@@ -90,8 +117,35 @@ class _PatchMapViewState extends State<PatchMapView>
   late final MapSession session;
   late final FrameCoordinator frame;
   late final InputCoordinator input;
+  late final LongPressEdit _editor = LongPressEdit(
+    currentGeometry: input.currentGeometry,
+    camera: backend.camera,
+    palette: backend.palette,
+    query: input.query,
+    selection: input.selection,
+    invalidate: _invalidateEditPreview,
+    resolveTarget: (hit) {
+      final resolver = widget.editTargetResolver;
+      if (resolver == null) return hit.gridId ?? hit.id;
+      String? id;
+      session.filter(() {
+        id = resolver(hit);
+        return id != null;
+      });
+      return id;
+    },
+    isCommitPending: () => session.editInFlight || session.isEditingRelation,
+    recordSelection: session.recordSelection,
+    commit: session.move,
+    notify: (result) {
+      if (!_disposed) session.notify(() => widget.onMoveResult?.call(result));
+    },
+    reportError: _report,
+  );
   PatchMapController? _attachedController;
   PatchMapFailure? _failure;
+  _EditPreviewRepaint? _editPreviewRepaint;
+  bool _editPreviewDirty = false;
   bool _foreground = true, _disposed = false;
   final _relationHits = Expando<InputHitGeometry>();
   bool _deferInput = false;
@@ -114,6 +168,7 @@ class _PatchMapViewState extends State<PatchMapView>
       );
     }
     MapCamera.validateZoomLimits(widget.zoomLimits);
+    RangeError.checkNotNegative(widget.editHistoryLimit, 'editHistoryLimit');
     TouchCameraGesture.validateOptions(widget.gestures);
     selection.SelectionOverlay.validateStyle(widget.selectionStyle);
     MapCamera.validateRotationAnimation(widget.rotationAnimation);
@@ -139,7 +194,13 @@ class _PatchMapViewState extends State<PatchMapView>
     frame = FrameCoordinator(
       onFrame: (time) {
         input.onFrame();
-        return backend.onFrame(time);
+        final animate = backend.onFrame(time);
+        input.checkEditCamera();
+        if (_editPreviewDirty) {
+          _editPreviewDirty = false;
+          _editPreviewRepaint?.repaint();
+        }
+        return animate;
       },
       onSubmitted: (stamp) {
         session.didSubmit(stamp);
@@ -165,6 +226,9 @@ class _PatchMapViewState extends State<PatchMapView>
         widget.onPhaseChanged?.call(phase, failure);
       },
       onCallbackError: _report,
+      editHistoryLimit: widget.editHistoryLimit,
+      readEditSelection: () => input.selection.ids,
+      onEditHistoryChanged: (state) => widget.onEditHistoryChanged?.call(state),
     );
     input = InputCoordinator(
       currentGeometry: () => backend.current?.geometry,
@@ -183,6 +247,7 @@ class _PatchMapViewState extends State<PatchMapView>
       onNeedFrame: frame.invalidate,
       onNeedNotification: frame.requestNotification,
       claimDoubleTapZoom: _gestureArena.claimZoom,
+      currentGeneration: () => session.generation,
       filter: (object) =>
           session.filter(() => widget.eventFilter?.call(object) ?? true),
     );
@@ -226,6 +291,12 @@ class _PatchMapViewState extends State<PatchMapView>
     }
   }
 
+  void _invalidateEditPreview() {
+    if (_editPreviewDirty || _disposed) return;
+    _editPreviewDirty = true;
+    frame.requestNotification();
+  }
+
   void _observe(Future<PatchMapResult> future) {
     unawaited(
       future.catchError((Object error, StackTrace stack) {
@@ -255,6 +326,7 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previousDoubleTap = _gestureOptions.doubleTapEnabled;
     try {
       if (backend.camera.setRotationAnimation(widget.rotationAnimation)) {
         frame.invalidate();
@@ -290,6 +362,8 @@ class _PatchMapViewState extends State<PatchMapView>
       _attachedController?.detach(this);
       _attachedController = widget.controller;
       input.endDoubleTapZoom();
+      input.cancelEdit();
+      backend.clearRelationLinkPreview();
     }
     if (!presentationEqual(oldWidget.colors, widget.colors) ||
         !presentationEqual(oldWidget.symbols, widget.symbols)) {
@@ -303,18 +377,38 @@ class _PatchMapViewState extends State<PatchMapView>
       _observe(session.replace(widget.initialData));
     }
     if (zoomChanged) frame.invalidate();
-    _configureInput();
+    _configureInput(
+      doubleTapChanged: previousDoubleTap != _gestureOptions.doubleTapEnabled,
+    );
     _activity();
   }
 
   bool get _doubleTapZoomEnabled =>
-      _gestureOptions.doubleTapDragZoomEnabled && _gestureOptions.zoomEnabled;
+      _gestureOptions.doubleTapEnabled &&
+      _gestureOptions.doubleTapDragZoomEnabled &&
+      _gestureOptions.zoomEnabled;
 
   bool get _canStartInput => phase == PatchMapPhase.ready && session.active;
 
-  void _configureInput() {
+  void _configureInput({bool doubleTapChanged = false}) {
     input.dragMode = widget.dragMode;
+    input.paintDragRequiresTarget = _gestureOptions.paintDragRequiresTarget;
+    input.paintDragRequiresLongPress =
+        _gestureOptions.paintDragRequiresLongPress;
     input.configureDoubleTapZoom(_doubleTapZoomEnabled);
+    final wasDeferred = _deferInput;
+    _deferInput = true;
+    try {
+      if (doubleTapChanged) {
+        input.cancel(PatchMapEndReason.cancelled);
+        _gestureArena.reset();
+      }
+      input.configureLongPressEdit(
+        widget.longPressEditEnabled ? _editor : null,
+      );
+    } finally {
+      _deferInput = wasDeferred;
+    }
   }
 
   @override
@@ -447,6 +541,7 @@ class _PatchMapViewState extends State<PatchMapView>
     _attachedController = null;
     WidgetsBinding.instance.removeObserver(this);
     input.dispose();
+    _editPreviewRepaint?.dispose();
     session.close();
     frame.dispose();
     super.dispose();
@@ -505,6 +600,7 @@ class _PatchMapViewState extends State<PatchMapView>
             child: MapGestureDetector(
               arena: _gestureArena,
               canStart: () => _canStartInput,
+              doubleTapEnabled: _gestureOptions.doubleTapEnabled,
               longPressDuration: _gestureOptions.longPressDuration,
               onTap: () => input.recognizedTap(epoch: _recognitionEpoch),
               onDoubleTap: (pointer) => input.recognizedDoubleTap(
@@ -531,10 +627,25 @@ class _PatchMapViewState extends State<PatchMapView>
                           if (!_disposed && session.generation == generation) {
                             session.fail(error, stack);
                           }
-                        }, () => input.selection.ids),
+                        }, input.selection),
                       ),
                     ),
                   ),
+                  if (widget.longPressEditEnabled && widget.active)
+                    IgnorePointer(
+                      child: RepaintBoundary(
+                        child: ClipRect(
+                          child: CustomPaint(
+                            painter: _EditPreviewPainter(
+                              _editPreviewRepaint ??= _EditPreviewRepaint(),
+                              backend.camera,
+                              () => input.editPreview,
+                              backend.selectionOverlay.style,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   if (phase == PatchMapPhase.preparing &&
                       widget.loadingBuilder != null)
                     widget.loadingBuilder!(context),
@@ -588,6 +699,19 @@ class _PatchMapViewState extends State<PatchMapView>
         : readObjectGeometry(published.geometry, id);
   }
 
+  @override
+  List<PatchMapObject> selectableRelationsFor(String endpointId) {
+    if (phase != PatchMapPhase.ready) return const [];
+    final geometry = backend.current?.geometry;
+    if (geometry == null) return const [];
+    return List.unmodifiable([
+      for (final id in geometry.relationIdsFor(endpointId))
+        if (geometry[id] case final node?
+            when node.visible && !node.locked && node.bounds != null)
+          input.query.object(node),
+    ]);
+  }
+
   PatchMapResult _cameraCommand(void Function() action) {
     if (!session.commandsAllowed ||
         phase != PatchMapPhase.ready ||
@@ -605,6 +729,7 @@ class _PatchMapViewState extends State<PatchMapView>
     try {
       final center = backend.camera.center, scale = backend.camera.scale;
       action();
+      input.checkEditCamera();
       if (center != backend.camera.center || scale != backend.camera.scale) {
         input.endDoubleTapZoom();
       }
@@ -683,7 +808,11 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   List<PatchMapObject> get selected => input.selection.selected;
   @override
-  PatchMapResult select(Iterable<String> ids, String mode) {
+  PatchMapResult select(
+    Iterable<String> ids,
+    String mode, {
+    bool recordHistory = false,
+  }) {
     if (!session.commandsAllowed ||
         phase != PatchMapPhase.ready ||
         !session.active) {
@@ -697,13 +826,34 @@ class _PatchMapViewState extends State<PatchMapView>
         ],
       );
     }
-    final result = switch (mode) {
-      'set' => input.selection.set(ids),
-      'add' => input.selection.add(ids),
-      'remove' => input.selection.remove(ids),
-      'toggle' => input.selection.toggle(ids),
-      _ => throw StateError('unknown selection command'),
-    };
+    final trackSelection = recordHistory && session.hasEditHistory;
+    if (trackSelection &&
+        (session.editInFlight ||
+            session.isEditingRelation ||
+            _editor.isDragging)) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: const [
+          PatchMapFailure('EDIT_BUSY', 'An edit is in progress'),
+        ],
+      );
+    }
+    final before = trackSelection ? input.selection.ids.toList() : null;
+    final wasDeferred = _deferInput;
+    if (trackSelection) _deferInput = true;
+    final SelectionResult result;
+    try {
+      result = switch (mode) {
+        'set' => input.selection.set(ids),
+        'add' => input.selection.add(ids),
+        'remove' => input.selection.remove(ids),
+        'toggle' => input.selection.toggle(ids),
+        _ => throw StateError('unknown selection command'),
+      };
+      if (before != null) session.recordSelection(before, input.selection.ids);
+    } finally {
+      _deferInput = wasDeferred;
+    }
     return PatchMapResult(
       result.missing.isEmpty
           ? PatchMapOutcome.applied
@@ -720,6 +870,157 @@ class _PatchMapViewState extends State<PatchMapView>
   }
 
   @override
+  Future<PatchMapMoveResult> alignSelection(PatchMapAlignment alignment) {
+    final geometry = backend.current?.geometry;
+    if (!session.commandsAllowed ||
+        !session.active ||
+        phase != PatchMapPhase.ready ||
+        geometry == null ||
+        (session.hasEditHistory && _editor.isDragging)) {
+      return Future.value(
+        PatchMapMoveResult(
+          PatchMapResult(
+            PatchMapOutcome.rejected,
+            failures: const [
+              PatchMapFailure(
+                'NOT_READY',
+                'An active submitted diagram outside a filter is required',
+              ),
+            ],
+          ),
+          const {},
+        ),
+      );
+    }
+    return alignSelectedObjects(
+      alignment,
+      geometry,
+      input.selection,
+      session.move,
+    );
+  }
+
+  @override
+  Future<PatchMapResult> addObjects(
+    List<Map<String, Object?>> objects, {
+    required bool selectAdded,
+  }) => session.addObjects(
+    objects,
+    selectAdded: selectAdded,
+    restoreSelection: _restoreHistorySelection,
+    gestureInProgress: _editor.isDragging,
+  );
+
+  @override
+  Future<PatchMapResult> editRelation(
+    String id, {
+    List<Map<String, Object?>>? links,
+    List<List<Map<String, Object?>>>? linkSteps,
+    Map<String, Object?>? metadata,
+    bool remove = false,
+    bool mergeEmptyLinkEdit = false,
+  }) => session.editRelation(
+    id,
+    links: links,
+    linkSteps: linkSteps,
+    metadata: metadata,
+    remove: remove,
+    mergeEmptyLinkEdit: mergeEmptyLinkEdit,
+    restoreSelection: _restoreHistorySelection,
+    gestureInProgress: _editor.isDragging,
+  );
+
+  @override
+  PatchMapResult previewRelationLinks(
+    String id,
+    List<Map<String, Object?>> links,
+  ) {
+    if (!_canStartInput || !session.commandsAllowed) {
+      return PatchMapResult(
+        PatchMapOutcome.rejected,
+        failures: const [
+          PatchMapFailure(
+            'NOT_READY',
+            'A submitted active diagram is required',
+          ),
+        ],
+      );
+    }
+    return backend.previewRelationLinks(id, links);
+  }
+
+  @override
+  void clearRelationLinkPreview() {
+    if (session.commandsAllowed) backend.clearRelationLinkPreview();
+  }
+
+  @override
+  Future<PatchMapResult> beginRelationCreation(Map<String, Object?> relation) =>
+      session.addObjects(
+        [relation],
+        selectAdded: false,
+        restoreSelection: _restoreHistorySelection,
+        gestureInProgress: _editor.isDragging,
+        editNewRelation: true,
+      );
+
+  @override
+  PatchMapResult beginRelationEdit(String id) =>
+      session.beginRelationEdit(id, gestureInProgress: _editor.isDragging);
+
+  @override
+  Future<PatchMapResult> finishRelationEdit(
+    String id, {
+    required bool removeIfEmpty,
+    bool cancelCreation = false,
+  }) => session.finishRelationEdit(
+    id,
+    removeIfEmpty: removeIfEmpty,
+    cancelCreation: cancelCreation,
+    gestureInProgress: _editor.isDragging,
+    restoreSelection: _restoreHistorySelection,
+  );
+
+  @override
+  PatchMapEditHistoryState get editHistoryState => session.editHistoryState;
+
+  @override
+  List<String> get rootIds => phase == PatchMapPhase.ready
+      ? List.unmodifiable(
+          session.document!.roots.map((root) => root['id']! as String),
+        )
+      : const [];
+
+  @override
+  Future<PatchMapMoveResult> replayEdit({required bool redo}) =>
+      session.replayEdit(
+        redo: redo,
+        gestureInProgress: _editor.isDragging,
+        canMove: (id) {
+          final snapshot = input.currentGeometry();
+          final slot = snapshot?.topology.slots[id];
+          return slot != null && EditPlacement.capture(snapshot!, slot) != null;
+        },
+        restoreSelection: _restoreHistorySelection,
+      );
+
+  void _restoreHistorySelection(List<String> ids) {
+    final geometry = input.currentGeometry();
+    final wasDeferred = _deferInput;
+    _deferInput = true;
+    try {
+      input.selection.set(
+        ids.where((id) {
+          final node = geometry?[id];
+          return node != null && node.visible && !node.locked;
+        }),
+      );
+    } finally {
+      _deferInput = wasDeferred;
+    }
+  }
+
+  @override
   Offset toWorld(Offset local) => backend.camera.localToWorld(local);
   @override
   Offset toLocal(Offset world) => backend.camera.worldToLocal(world);
@@ -731,19 +1032,24 @@ class _MapPainter extends CustomPainter {
     this.frame,
     this.pixelRatio,
     this.fail,
-    this.selectedIds,
+    this.selection,
   ) : super(repaint: frame);
   final MapBackend backend;
   final FrameCoordinator frame;
   final double pixelRatio;
   final void Function(int, Object, StackTrace) fail;
-  final Iterable<String> Function() selectedIds;
+  final SelectionState selection;
   @override
   void paint(Canvas canvas, Size size) {
     if (backend.current == null || !frame.active) return;
     final generation = backend.generation, revision = backend.revision;
     try {
-      backend.paint(canvas, pixelRatio, selectedIds: selectedIds());
+      backend.paint(
+        canvas,
+        pixelRatio,
+        selectedIds: selection.ids,
+        includeSelectedContainers: selection.hasContainers,
+      );
       frame.didPaint(generation, revision);
     } catch (error, stack) {
       // A post-frame callback may accept a replacement before this continuation.
@@ -755,4 +1061,54 @@ class _MapPainter extends CustomPainter {
   @override
   bool shouldRepaint(_MapPainter old) =>
       old.pixelRatio != pixelRatio || !identical(old.backend, backend);
+}
+
+/// The map's frame callback repaints this boundary independently of the scene.
+final class _EditPreviewRepaint extends ChangeNotifier {
+  void repaint() => notifyListeners();
+}
+
+final class _EditPreviewPainter extends CustomPainter {
+  _EditPreviewPainter(
+    Listenable repaint,
+    this.camera,
+    this.preview,
+    this.selectionStyle,
+  ) : super(repaint: repaint);
+
+  final MapCamera camera;
+  final ({Rect bounds, bool world})? Function() preview;
+  final PatchMapSelectionStyle selectionStyle;
+  late final _rangeFill = Paint()
+    ..color = selectionStyle.color.withValues(
+      alpha: selectionStyle.color.a * .08,
+    );
+  late final _rangeStroke = Paint()
+    ..color = selectionStyle.color
+    ..strokeWidth = selectionStyle.strokeWidth
+    ..style = PaintingStyle.stroke;
+  late final _moveStroke = Paint()
+    ..color = const Color(0xff2f80ed)
+    ..style = PaintingStyle.stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final value = preview();
+    if (value == null) return;
+    if (!value.world) {
+      canvas.drawRect(value.bounds, _rangeFill);
+      canvas.drawRect(value.bounds, _rangeStroke);
+      return;
+    }
+    _moveStroke.strokeWidth = 2 / camera.scale;
+    canvas.save();
+    canvas.transform(camera.paintMatrix);
+    canvas.drawRect(value.bounds, _moveStroke);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_EditPreviewPainter old) =>
+      old.selectionStyle.color != selectionStyle.color ||
+      old.selectionStyle.strokeWidth != selectionStyle.strokeWidth;
 }
