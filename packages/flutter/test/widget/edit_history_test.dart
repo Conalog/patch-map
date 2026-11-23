@@ -120,6 +120,58 @@ void main() {
     {'source': 'a', 'target': 'c'},
   ];
 
+  testWidgets(
+    'publishes paint link steps atomically and replays them locally',
+    (tester) async {
+      final map = PatchMapController();
+      await tester.pumpWidget(_host(map));
+      await _draw(tester, map);
+      final original = map.getValue(link)!['links'];
+      expect(
+        (await map.updateRelationLinkSteps('link', [firstLinks])).outcome,
+        PatchMapOutcome.rejected,
+      );
+      map.beginRelationEdit('link');
+      expect(
+        (await map.updateRelationLinkSteps('link', [
+          firstLinks,
+          [
+            {'source': 'a'},
+          ],
+        ])).outcome,
+        PatchMapOutcome.rejected,
+      );
+      expect(map.getValue(link)!['links'], original);
+      expect(map.editHistoryState.undoDepth, 0);
+
+      final request = map.updateRelationLinkSteps('link', [
+        firstLinks,
+        firstLinks,
+        secondLinks,
+      ]);
+      expect(map.getValue(link)!['links'], original);
+      expect(map.editHistoryState.isBusy, isTrue);
+      expect((await _submit(tester, request)).outcome, PatchMapOutcome.applied);
+      expect(map.getValue(link)!['links'], secondLinks);
+      expect(map.editHistoryState.undoDepth, 2);
+      await _submit(tester, map.undo());
+      expect(map.getValue(link)!['links'], firstLinks);
+      await _submit(tester, map.undo());
+      expect(map.getValue(link)!['links'], original);
+      await _submit(tester, map.redo());
+      await _submit(tester, map.redo());
+      expect(map.getValue(link)!['links'], secondLinks);
+      expect(
+        (await map.finishRelationEdit('link')).outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.editHistoryState.undoDepth, 1);
+      await _submit(tester, map.undo());
+      expect(map.getValue(link)!['links'], original);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('scopes live steps and commits the applied links as one edit', (
     tester,
   ) async {

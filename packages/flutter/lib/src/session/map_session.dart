@@ -324,6 +324,7 @@ final class MapSession {
   Future<PatchMapResult> editRelation(
     String id, {
     List<Map<String, Object?>>? links,
+    List<List<Map<String, Object?>>>? linkSteps,
     Map<String, Object?>? metadata,
     required bool remove,
     bool mergeEmptyLinkEdit = false,
@@ -339,6 +340,9 @@ final class MapSession {
           metadata?.isNotEmpty != true,
     );
     if (denial != null) return denial;
+    if (linkSteps != null && scope == null) {
+      return _editDenied('INVALID_TARGET', 'An open relation edit is required');
+    }
     final document = _document!;
     final authored = document.targets[id];
     if (authored?.type != 'relations') {
@@ -352,9 +356,17 @@ final class MapSession {
       return _editDenied('LOCKED_TARGET', 'The relation is locked');
     }
 
+    final initial = (authored: relation, effective: before);
+    final index = document.indexOf(relation);
+    final changesLinks = links != null || linkSteps != null;
+    final metadataKeys = metadata?.keys.toSet() ?? const <String>{};
+    final steps = <RelationEdit>[];
     RelationVersion? after;
     if (!remove) {
-      DatasetTarget edited(Map<String, Object?> data) {
+      DatasetTarget edited(
+        Map<String, Object?> data,
+        List<Map<String, Object?>>? nextLinks,
+      ) {
         final attrs = data['attrs'] as Map<String, Object?>?;
         final existingMetadata = attrs?['metadata'];
         if (metadata?.isNotEmpty == true &&
@@ -368,7 +380,7 @@ final class MapSession {
         }
         return _reader.readRelation({
           ...data,
-          'links': ?links,
+          'links': ?nextLinks,
           if (metadata?.isNotEmpty == true)
             'attrs': {
               ...?attrs,
@@ -382,37 +394,55 @@ final class MapSession {
       }
 
       try {
-        final candidate = edited(relation.data);
-        final original = scope?.before.authored;
-        // Earlier global entries can replay against the original target again
-        // if the local edits end where they started.
-        final nextAuthored =
-            original != null &&
-                presentationEqual(
-                  candidate.data['links'],
-                  original.data['links'],
-                )
-            ? original
-            : candidate;
-        final nextValue = identical(before, relation.data)
-            ? nextAuthored.data
-            : edited(before).data;
-        if (presentationEqual(relation.data, nextAuthored.data) &&
-            presentationEqual(before, nextValue)) {
-          return PatchMapResult(PatchMapOutcome.unchanged);
+        var previous = initial;
+        for (final nextLinks in linkSteps ?? [links]) {
+          final candidate = edited(previous.authored.data, nextLinks);
+          final original = scope?.before.authored;
+          // Reuse the original target when returning to its links so older
+          // global history entries can still match its identity.
+          final nextAuthored =
+              original != null &&
+                  presentationEqual(
+                    candidate.data['links'],
+                    original.data['links'],
+                  )
+              ? original
+              : candidate;
+          final nextValue =
+              identical(previous.effective, previous.authored.data)
+              ? nextAuthored.data
+              : edited(previous.effective, nextLinks).data;
+          if (presentationEqual(previous.authored.data, nextAuthored.data) &&
+              presentationEqual(previous.effective, nextValue)) {
+            continue;
+          }
+          final next = (authored: nextAuthored, effective: nextValue);
+          if (linkSteps != null) {
+            steps.add(
+              RelationEdit(
+                previous,
+                next,
+                index,
+                changesLinks: true,
+                metadataKeys: const {},
+              ),
+            );
+          }
+          previous = next;
+          after = next;
         }
-        after = (authored: nextAuthored, effective: nextValue);
+        if (after == null) return PatchMapResult(PatchMapOutcome.unchanged);
       } on DatasetException catch (error) {
         return _rejected(error);
       }
     }
 
     final change = RelationEdit(
-      (authored: relation, effective: before),
+      initial,
       after,
-      document.indexOf(relation),
-      changesLinks: links != null,
-      metadataKeys: metadata?.keys.toSet() ?? const {},
+      index,
+      changesLinks: changesLinks,
+      metadataKeys: metadataKeys,
     );
     return _queueRelation(
       change,
@@ -424,12 +454,19 @@ final class MapSession {
             ? before.where((selected) => selected != id).toList()
             : before;
         if (remove && after.length != before.length) restoreSelection(after);
-        _activeEditHistory?.recordRelation(
-          change,
-          before,
-          after,
-          mergeEmptyLinkEdit: mergeEmptyLinkEdit,
-        );
+        final history = _activeEditHistory;
+        if (steps.isEmpty) {
+          history?.recordRelation(
+            change,
+            before,
+            after,
+            mergeEmptyLinkEdit: mergeEmptyLinkEdit,
+          );
+        } else {
+          for (final step in steps) {
+            history!.recordRelation(step, before, after);
+          }
+        }
       },
     );
   }

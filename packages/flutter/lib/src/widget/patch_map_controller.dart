@@ -45,6 +45,13 @@ final class PatchMapController {
       _binding?.editRelation(id, links: links, metadata: metadata) ??
       _detached();
 
+  /// Publish the last of a series of complete link lists in one transaction
+  /// during an open relation edit. Each changed list is a local undo step.
+  Future<PatchMapResult> updateRelationLinkSteps(
+    String id,
+    List<List<Map<String, Object?>>> steps,
+  ) => _binding?.editRelation(id, linkSteps: steps) ?? _detached();
+
   /// Remove a root or nested relation as one undoable edit.
   /// A matching last link edit can be merged so undo restores a linked relation.
   Future<PatchMapResult> removeRelation(
@@ -181,6 +188,7 @@ abstract class PatchMapBinding {
   Future<PatchMapResult> editRelation(
     String id, {
     List<Map<String, Object?>>? links,
+    List<List<Map<String, Object?>>>? linkSteps,
     Map<String, Object?>? metadata,
     bool remove = false,
     bool mergeEmptyLinkEdit = false,

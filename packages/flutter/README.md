@@ -279,6 +279,11 @@ callbacks. Move callbacks are coalesced per frame while intermediate path hits
 are retained. Interrupted drags have one end event with a reason; widget removal
 does not emit a new callback. No domain fetching or business action is built in.
 
+In paint mode, `dragStart.target` identifies the eligible target at pointer
+down. Set `PatchMapGestureOptions(paintDragRequiresTarget: true)` to pan when
+the press starts outside an eligible target. Paint move/end events retain the
+objects crossed in encounter order.
+
 Set `PatchMapGestureOptions(doubleTapEnabled: false)` for tools that use each
 single tap without waiting for a possible double tap. This also disables
 double-tap drag zoom. Pinch, rotation and pan remain available.
@@ -434,6 +439,11 @@ For an interactive link editor, enable `editHistoryLimit` and call
 configured limit. Camera commands, presentation updates and unrecorded
 selection remain available. Other history-producing editor commands reject
 with `EDIT_BUSY`.
+
+`updateRelationLinkSteps(id, steps)` accepts ordered complete link lists
+during an open relation edit. It publishes only the final list in one
+transaction, while each changed list adds one local undo step. Invalid input
+rejects the whole batch. Use it to apply a completed paint stroke.
 
 `finishRelationEdit(id)` restores the selection from the start and records the
 applied link changes as one global action. Identical ordered links return

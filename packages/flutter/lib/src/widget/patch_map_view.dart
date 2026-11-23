@@ -390,6 +390,7 @@ class _PatchMapViewState extends State<PatchMapView>
 
   void _configureInput({bool doubleTapChanged = false}) {
     input.dragMode = widget.dragMode;
+    input.paintDragRequiresTarget = _gestureOptions.paintDragRequiresTarget;
     input.configureDoubleTapZoom(_doubleTapZoomEnabled);
     final wasDeferred = _deferInput;
     _deferInput = true;
@@ -910,12 +911,14 @@ class _PatchMapViewState extends State<PatchMapView>
   Future<PatchMapResult> editRelation(
     String id, {
     List<Map<String, Object?>>? links,
+    List<List<Map<String, Object?>>>? linkSteps,
     Map<String, Object?>? metadata,
     bool remove = false,
     bool mergeEmptyLinkEdit = false,
   }) => session.editRelation(
     id,
     links: links,
+    linkSteps: linkSteps,
     metadata: metadata,
     remove: remove,
     mergeEmptyLinkEdit: mergeEmptyLinkEdit,

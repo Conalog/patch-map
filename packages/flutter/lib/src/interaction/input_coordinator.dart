@@ -54,6 +54,7 @@ final class InputCoordinator {
   final InputQuery query;
   late final SelectionState selection;
   PatchMapDragMode dragMode = PatchMapDragMode.pan;
+  bool paintDragRequiresTarget = false;
   bool _doubleTapZoomEnabled = false;
   final _pointers = <int>{};
   _Gesture? _gesture;
@@ -161,6 +162,7 @@ final class InputCoordinator {
     final target = snapshot == null
         ? null
         : query.point(snapshot, p.world, camera.rotation);
+    if (buttons == 1) _gesture?.startTarget = target;
     _recognition = _Recognition(_epoch, pointer, p, target, local);
     _emit(
       PatchMapInputEvent(
@@ -212,7 +214,7 @@ final class InputCoordinator {
         }
       }
       if (!identical(_gesture, gesture)) return;
-      gesture.mode = dragMode;
+      gesture.mode = _dragModeFor(gesture);
       _emit(_event(gesture, PatchMapInputKind.dragStart, p));
       // A callback can dispose/reset this coordinator. Do not resurrect work.
       if (!identical(_gesture, gesture) || _disposed) return;
@@ -228,6 +230,13 @@ final class InputCoordinator {
       }
     }
   }
+
+  PatchMapDragMode _dragModeFor(_Gesture gesture) =>
+      dragMode == PatchMapDragMode.paint &&
+          paintDragRequiresTarget &&
+          gesture.startTarget == null
+      ? PatchMapDragMode.pan
+      : dragMode;
 
   void _zoom(_Gesture gesture, double y, double previousY) {
     if (!y.isFinite || y == previousY) return;
@@ -261,7 +270,7 @@ final class InputCoordinator {
                 rotation,
               );
       case PatchMapDragMode.paint:
-      case null when dragMode == PatchMapDragMode.paint:
+      case null when _dragModeFor(gesture) == PatchMapDragMode.paint:
         // Include the first raw segment even before paint crosses drag slop.
         if (snapshot != null) {
           for (final value in query.segment(
@@ -523,6 +532,11 @@ final class InputCoordinator {
     pointer: gesture.pointer,
     position: p,
     mode: gesture.mode,
+    target:
+        kind == PatchMapInputKind.dragStart &&
+            gesture.mode == PatchMapDragMode.paint
+        ? gesture.startTarget
+        : null,
     reason: reason,
     range: gesture.range,
     objects: gesture.mode == PatchMapDragMode.paint
@@ -537,6 +551,7 @@ final class _Gesture {
   final PatchMapPosition start;
   final bool touch;
   PatchMapPosition last;
+  PatchMapObject? startTarget;
   bool zoomCandidate = false, holdRecognized = false;
   bool editAllowed = false, editClaimed = false;
   double? zoomY;
