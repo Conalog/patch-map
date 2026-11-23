@@ -160,8 +160,18 @@ final class BarTransitions {
 
   void clear() => _active.clear();
 
-  void removeTrailingSlots(int length) =>
-      _active.removeWhere((key, _) => key.$1 >= length);
+  void remapSlots(GeometryTopology before, GeometryTopology after) {
+    if (_active.isEmpty) return;
+    final remapped = <(int, String), _Transition>{};
+    for (final entry in _active.entries) {
+      final (slot, component) = entry.key;
+      final nextSlot = after.slots[before.ids[slot]];
+      if (nextSlot != null) remapped[(nextSlot, component)] = entry.value;
+    }
+    _active
+      ..clear()
+      ..addAll(remapped);
+  }
 }
 
 final class _Transition {

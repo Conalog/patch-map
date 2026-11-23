@@ -888,8 +888,11 @@ final class MapBackend extends SessionBackend {
       if (replacing) {
         transitions.clear();
         _pendingFit = true;
-      } else if (next.geometry.nodes.length < previous.geometry.nodes.length) {
-        transitions.removeTrailingSlots(next.geometry.nodes.length);
+      } else {
+        transitions.remapSlots(
+          previous.geometry.topology,
+          next.geometry.topology,
+        );
       }
     } else {
       for (final slot in next.changed) {
