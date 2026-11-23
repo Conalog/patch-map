@@ -287,9 +287,21 @@ final class MapSession {
     required bool selectAdded,
     required void Function(List<String>) restoreSelection,
     required bool gestureInProgress,
+    bool editNewRelation = false,
   }) async {
     final denial = _editDenial(gestureInProgress: gestureInProgress);
     if (denial != null) return denial;
+    if (editNewRelation) {
+      if (_editHistory == null) {
+        return _editDenied('HISTORY_DISABLED', 'Edit history is required');
+      }
+      if (objects.length != 1 || objects.single['type'] != 'relations') {
+        return _editDenied('INVALID_TARGET', 'A relation root is required');
+      }
+      if (objects.single['locked'] == true) {
+        return _editDenied('LOCKED_TARGET', 'The relation is locked');
+      }
+    }
     final DatasetDocument added, candidate;
     try {
       final document = _document!;
@@ -306,6 +318,14 @@ final class MapSession {
       removed: null,
       canPublish: () => true,
       didPublish: () {
+        if (editNewRelation) {
+          final authored = added.targets.values.single;
+          _openRelationEdit((
+            authored: authored,
+            effective: authored.data,
+          ), creating: true);
+          return;
+        }
         final before = readEditSelection?.call().toList() ?? const <String>[];
         if (selectAdded) {
           restoreSelection([
@@ -477,8 +497,7 @@ final class MapSession {
   }) {
     final denial = _editDenial(gestureInProgress: gestureInProgress);
     if (denial != null) return denial;
-    final history = _editHistory;
-    if (history == null) {
+    if (_editHistory == null) {
       return _editDenied('HISTORY_DISABLED', 'Edit history is required');
     }
     final authored = _document!.targets[id];
@@ -490,18 +509,24 @@ final class MapSession {
         !_relationParentUnlocked(authored.parentId)) {
       return _editDenied('LOCKED_TARGET', 'The relation is locked');
     }
+    _openRelationEdit((authored: authored, effective: effective));
+    return PatchMapResult(PatchMapOutcome.applied);
+  }
+
+  void _openRelationEdit(RelationVersion before, {bool creating = false}) {
     _relationEdit = _RelationEditScope(
-      (authored: authored, effective: effective),
+      before,
       readEditSelection?.call().toList() ?? const [],
-      EditHistory(history.limit),
+      EditHistory(_editHistory!.limit),
+      creating: creating,
     );
     _notifyEditHistory();
-    return PatchMapResult(PatchMapOutcome.applied);
   }
 
   Future<PatchMapResult> finishRelationEdit(
     String id, {
     required bool removeIfEmpty,
+    bool cancelCreation = false,
     required bool gestureInProgress,
     required void Function(List<String>) restoreSelection,
   }) async {
@@ -511,7 +536,9 @@ final class MapSession {
     );
     if (denial != null) return denial;
     final scope = _relationEdit;
-    if (scope == null || scope.before.authored.id != id) {
+    if (scope == null ||
+        scope.before.authored.id != id ||
+        (cancelCreation && !scope.creating)) {
       return _editDenied('INVALID_TARGET', 'No matching relation edit is open');
     }
     final document = _document!;
@@ -519,14 +546,28 @@ final class MapSession {
     final effective = _latestRecord(PatchMapTarget(id))!;
     final current = (authored: authored, effective: effective);
     final index = document.indexOf(authored);
-    final remove = removeIfEmpty && (effective['links'] as List).isEmpty;
-    final changed = !identical(authored, scope.before.authored);
+    final remove =
+        cancelCreation ||
+        ((scope.creating || removeIfEmpty) &&
+            (effective['links'] as List).isEmpty);
+    final changed =
+        scope.creating || !identical(authored, scope.before.authored);
     final selection = remove
         ? scope.selection.where((selected) => selected != id).toList()
+        : scope.creating
+        ? [id]
         : scope.selection;
 
     void finish() {
-      if (remove || changed) {
+      if (scope.creating) {
+        if (!remove) {
+          _editHistory!.recordAddition(
+            DatasetDocument.relationRoot(authored),
+            scope.selection,
+            selection,
+          );
+        }
+      } else if (remove || changed) {
         _editHistory!.recordRelation(
           RelationEdit(
             remove
@@ -558,8 +599,9 @@ final class MapSession {
         changed ? PatchMapOutcome.applied : PatchMapOutcome.unchanged,
       );
     }
-    if (effective['locked'] == true ||
-        !_relationParentUnlocked(authored.parentId)) {
+    if (!scope.creating &&
+        (effective['locked'] == true ||
+            !_relationParentUnlocked(authored.parentId))) {
       return _editDenied('LOCKED_TARGET', 'The relation is locked');
     }
     return _queueRelation(
@@ -573,6 +615,7 @@ final class MapSession {
       redo: true,
       isCurrent: () => identical(_relationEdit, scope),
       didPublish: finish,
+      allowLockedRemoval: scope.creating,
     );
   }
 
@@ -592,6 +635,7 @@ final class MapSession {
     required bool redo,
     required bool Function() isCurrent,
     required void Function() didPublish,
+    bool allowLockedRemoval = false,
   }) {
     final id = relation.id;
     final target = PatchMapTarget(id);
@@ -618,7 +662,7 @@ final class MapSession {
     bool canPublish() =>
         isCurrent() &&
         identical(_document!.targets[id], previous?.authored) &&
-        current(target)?['locked'] != true &&
+        (allowLockedRemoval || current(target)?['locked'] != true) &&
         presentationEqual(current(target), baseline) &&
         _relationParentUnlocked(relation.parentId);
 
@@ -1429,8 +1473,14 @@ final class MapSession {
 }
 
 final class _RelationEditScope {
-  _RelationEditScope(this.before, this.selection, this.history);
+  _RelationEditScope(
+    this.before,
+    this.selection,
+    this.history, {
+    required this.creating,
+  });
 
+  final bool creating;
   final RelationVersion before;
   final List<String> selection;
   final EditHistory history;

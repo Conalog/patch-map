@@ -8,6 +8,13 @@ export 'dataset_values.dart' show DatasetException;
 /// Detached normalized authored data and an immutable concrete identity index.
 class DatasetDocument {
   DatasetDocument._(this.roots, this.targets);
+
+  /// Retain the published target identity for addition history replay.
+  factory DatasetDocument.relationRoot(DatasetTarget relation) =>
+      DatasetDocument._(
+        List.unmodifiable([relation.data]),
+        Map.unmodifiable({relation.id: relation}),
+      );
   final List<Map<String, Object?>> roots;
   final Map<String, DatasetTarget> targets;
 

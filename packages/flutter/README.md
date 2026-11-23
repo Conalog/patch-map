@@ -446,6 +446,16 @@ during an open relation edit. It publishes only the final list in one
 transaction, while each changed list adds one local undo step. Invalid input
 rejects the whole batch. Use it to apply a completed paint stroke.
 
+To add a relation interactively, call `beginRelationCreation(relation)` with
+an unlocked relation root, typically with an empty link list. The draft is
+available through the live document queries after submission. It uses the
+same local link history and preview commands. Finishing a draft with links
+selects and records the new relation as one global addition. Global undo
+removes it and restores the selection from before creation. Finishing an empty
+draft or calling `cancelRelationCreation(id)` removes the draft after
+submission, restores that selection, and preserves both global history
+branches. Finish or cancel before exporting edited data.
+
 Call `previewRelationLinks(id, links)` during a paint stroke to draw temporary
 links in the relation's usual position in paint order. The next frame shows
 the preview. The committed record, hit geometry and history remain intact.

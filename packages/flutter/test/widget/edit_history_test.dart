@@ -120,6 +120,113 @@ void main() {
     {'source': 'a', 'target': 'c'},
   ];
 
+  const draft = PatchMapTarget('draft');
+  const newRelation = {'type': 'relations', 'id': 'draft', 'links': []};
+  const selfLink = [
+    {'source': 'b', 'target': 'b'},
+  ];
+
+  testWidgets(
+    'creates a relation with local link steps and one global addition',
+    (tester) async {
+      final map = PatchMapController();
+      await tester.pumpWidget(_host(map));
+      await _draw(tester, map);
+      map.select(['a'], recordHistory: true);
+
+      final creation = map.beginRelationCreation(newRelation);
+      expect(map.getValue(draft), isNull);
+      expect(
+        (await _submit(tester, creation)).outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(draft)!['links'], isEmpty);
+      expect(map.editHistoryState.undoDepth, 0);
+      expect(
+        map.previewRelationLinks(draft.id, firstLinks).outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(draft)!['links'], isEmpty);
+      expect(
+        (await _submit(
+          tester,
+          map.updateRelationLinkSteps(draft.id, [selfLink, firstLinks]),
+        )).outcome,
+        PatchMapOutcome.applied,
+      );
+      map.clearRelationLinkPreview();
+      expect(map.editHistoryState.undoDepth, 2);
+      await _submit(tester, map.undo());
+      expect(map.getValue(draft)!['links'], selfLink);
+      await _submit(tester, map.redo());
+      expect(map.getValue(draft)!['links'], firstLinks);
+      expect(
+        (await map.finishRelationEdit(draft.id)).outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.editHistoryState.undoDepth, 2);
+      expect(_selected(map), [draft.id]);
+
+      // A later edit must still match the added target after replaying creation.
+      await _submit(tester, map.updateRelation(draft.id, links: secondLinks));
+      await _submit(tester, map.undo());
+      await _submit(tester, map.undo());
+      expect(map.getValue(draft), isNull);
+      expect(_selected(map), ['a']);
+      await _submit(tester, map.redo());
+      expect(map.getValue(draft)!['links'], firstLinks);
+      expect(
+        (await _submit(tester, map.redo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+      expect(map.getValue(draft)!['links'], secondLinks);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('cancelling or finishing an empty draft preserves global redo', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    await _draw(tester, map);
+    map.select(['a'], recordHistory: true);
+    map.select(['b'], recordHistory: true);
+    await _submit(tester, map.undo());
+    final globalState = map.editHistoryState;
+
+    await _submit(tester, map.beginRelationCreation(newRelation));
+    await _submit(tester, map.updateRelationLinkSteps(draft.id, [firstLinks]));
+    map.select(['c']);
+    expect(
+      (await _submit(
+        tester,
+        map.updateValues([
+          PatchMapUpdate(draft, {'locked': true}),
+        ]),
+      )).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(
+      (await _submit(tester, map.cancelRelationCreation(draft.id))).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.rootIds, isNot(contains(draft.id)));
+    expect(_selected(map), ['a']);
+    expect(map.editHistoryState, globalState);
+
+    await _submit(tester, map.beginRelationCreation(newRelation));
+    await _submit(tester, map.finishRelationEdit(draft.id));
+    expect(map.getValue(draft), isNull);
+    expect(map.editHistoryState, globalState);
+    expect(
+      (await _submit(tester, map.redo())).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(_selected(map), ['b']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'publishes paint link steps atomically and replays them locally',
     (tester) async {

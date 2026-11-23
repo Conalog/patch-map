@@ -954,6 +954,16 @@ class _PatchMapViewState extends State<PatchMapView>
   }
 
   @override
+  Future<PatchMapResult> beginRelationCreation(Map<String, Object?> relation) =>
+      session.addObjects(
+        [relation],
+        selectAdded: false,
+        restoreSelection: _restoreHistorySelection,
+        gestureInProgress: _editor.isDragging,
+        editNewRelation: true,
+      );
+
+  @override
   PatchMapResult beginRelationEdit(String id) =>
       session.beginRelationEdit(id, gestureInProgress: _editor.isDragging);
 
@@ -961,9 +971,11 @@ class _PatchMapViewState extends State<PatchMapView>
   Future<PatchMapResult> finishRelationEdit(
     String id, {
     required bool removeIfEmpty,
+    bool cancelCreation = false,
   }) => session.finishRelationEdit(
     id,
     removeIfEmpty: removeIfEmpty,
+    cancelCreation: cancelCreation,
     gestureInProgress: _editor.isDragging,
     restoreSelection: _restoreHistorySelection,
   );

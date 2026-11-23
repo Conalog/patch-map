@@ -75,6 +75,21 @@ final class PatchMapController {
       ) ??
       _detached();
 
+  /// Append a draft relation and open the same local link history as an edit.
+  /// Requires enabled edit history. The draft is part of the live diagram
+  /// after submission. Only finishing a nonempty draft records an addition.
+  Future<PatchMapResult> beginRelationCreation(Map<String, Object?> relation) =>
+      _binding?.beginRelationCreation(relation) ?? _detached();
+
+  /// Discard an open draft after submission and restore its original selection.
+  Future<PatchMapResult> cancelRelationCreation(String id) =>
+      _binding?.finishRelationEdit(
+        id,
+        removeIfEmpty: true,
+        cancelCreation: true,
+      ) ??
+      _detached();
+
   /// Open a local undo/redo history for live link edits to this relation.
   /// Requires an enabled editor history and an editable relation.
   PatchMapResult beginRelationEdit(String id) =>
@@ -83,6 +98,7 @@ final class PatchMapController {
   /// Finish the local link edit as one editor action and restore the previous
   /// selection. Unchanged links leave both global history branches intact.
   /// When enabled, removing an empty relation is part of the same action.
+  /// A new draft is selected and added as one action, or discarded if empty.
   Future<PatchMapResult> finishRelationEdit(
     String id, {
     bool removeIfEmpty = false,
@@ -203,6 +219,7 @@ abstract class PatchMapBinding {
     bool remove = false,
     bool mergeEmptyLinkEdit = false,
   });
+  Future<PatchMapResult> beginRelationCreation(Map<String, Object?> relation);
   PatchMapResult beginRelationEdit(String id);
   PatchMapResult previewRelationLinks(
     String id,
@@ -212,6 +229,7 @@ abstract class PatchMapBinding {
   Future<PatchMapResult> finishRelationEdit(
     String id, {
     required bool removeIfEmpty,
+    bool cancelCreation = false,
   });
   PatchMapPresentationResult setPresentation(
     String key,
