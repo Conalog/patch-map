@@ -169,6 +169,15 @@ markers. Set either marker to `none` to remove it. Markers extend the paint
 bounds used for culling and camera fit. Logical bounds and hit tests follow the
 underlying path and stroke.
 
+### Hide self-links
+
+Set `style.showSelfLinks: false` to omit the stroke, markers and hit area
+for links whose source and target are the same. The links remain in the
+dataset and endpoint lookup. If the relation only has suppressed links to
+visible endpoints, its logical selection bounds follow those endpoints.
+The default draws self-links as loops. The setting also applies to link
+previews and can be updated through `updateValues`.
+
 ## Presentation layers
 
 `PatchMapPresentationLayer(scope: addresses, targets: matches, unmatchedAlpha: .2)`

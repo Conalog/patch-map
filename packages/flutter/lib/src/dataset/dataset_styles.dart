@@ -21,7 +21,11 @@ const _strokeFields = [
   'matrix',
 ];
 const _relationMarkerFields = ['startMarker', 'endMarker'];
-const _relationStyleFields = [..._strokeFields, ..._relationMarkerFields];
+const _relationStyleFields = [
+  ..._strokeFields,
+  ..._relationMarkerFields,
+  'showSelfLinks',
+];
 const _textFields = [
   'fontFamily',
   'fontSize',
@@ -357,6 +361,8 @@ Map<String, Object?> stroke(
       ]),
     for (final key in ['fill', 'texture', 'matrix'])
       if (input.containsKey(key)) key: cloneJson(input[key], '$path.$key'),
+    if (relation && input.containsKey('showSelfLinks'))
+      'showSelfLinks': boolean(input['showSelfLinks'], '$path.showSelfLinks'),
     if (relation)
       for (final key in _relationMarkerFields)
         if (input.containsKey(key))
@@ -377,7 +383,7 @@ Map<String, Object?> stroke(
   if (!relation) return frozen(normalized);
   return frozen({
     for (final key in const ['color', 'alpha', 'width']) key: normalized[key],
-    for (final key in _relationMarkerFields)
+    for (final key in const [..._relationMarkerFields, 'showSelfLinks'])
       if (normalized.containsKey(key)) key: normalized[key],
   });
 }

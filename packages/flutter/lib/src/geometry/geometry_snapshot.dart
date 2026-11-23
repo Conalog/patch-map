@@ -651,6 +651,8 @@ bool _sameRelationStyleGeometry(
 ) {
   final oldStyle = before['style']! as Map, newStyle = after['style']! as Map;
   return oldStyle['width'] == newStyle['width'] &&
+      (oldStyle['showSelfLinks'] != false) ==
+          (newStyle['showSelfLinks'] != false) &&
       const [
         'startMarker',
         'endMarker',

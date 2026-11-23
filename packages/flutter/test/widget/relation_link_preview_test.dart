@@ -32,8 +32,9 @@ Map<String, Object?> _rect(
 Future<void> _draw(
   WidgetTester tester,
   PatchMapController map,
-  List<Map<String, Object?>> links,
-) async {
+  List<Map<String, Object?>> links, {
+  bool? showSelfLinks,
+}) async {
   final result = map.draw([
     _rect('a', 0, 0),
     _rect('b', 100, 0),
@@ -42,7 +43,11 @@ Future<void> _draw(
       'type': 'relations',
       'id': _relation.id,
       'links': links,
-      'style': {'color': '#ff0000', 'width': 8},
+      'style': {
+        'color': '#ff0000',
+        'width': 8,
+        'showSelfLinks': ?showSelfLinks,
+      },
     },
     _rect('cover', 45, 45, size: 20, fill: '#00ff00'),
   ]);
@@ -86,6 +91,54 @@ Future<List<int>> _pixel(
 void main() {
   const oldLine = Offset(55, 5), newLine = Offset(25, 25);
   const red = [255, 0, 0, 255], green = [0, 255, 0, 255];
+
+  testWidgets(
+    'hidden self-links keep endpoint membership and stay hidden in previews',
+    (tester) async {
+      const self = [
+        {'source': 'a', 'target': 'a'},
+      ];
+      const loopPoint = Offset(30, 5);
+      final map = PatchMapController();
+      await tester.pumpWidget(support.host(map));
+      await _draw(tester, map, self, showSelfLinks: false);
+
+      expect(map.getValue(_relation)!['links'], self);
+      expect(map.getSelectableRelationsFor('a').single.id, _relation.id);
+      expect(
+        map.getGeometry(_relation.id)!.bounds,
+        map.getGeometry('a')!.bounds,
+      );
+      expect(map.getGeometry(_relation.id)!.paintBounds, isNull);
+      expect((await _pixel(tester, map, loopPoint)).last, 0);
+
+      map.previewRelationLinks(_relation.id, _horizontal);
+      await tester.pump();
+      expect(await _pixel(tester, map, oldLine), red);
+      expect(map.getValue(_relation)!['links'], self);
+      map.clearRelationLinkPreview();
+      await tester.pump();
+      expect((await _pixel(tester, map, oldLine)).last, 0);
+
+      final update = map.updateValues(const [
+        PatchMapUpdate(_relation, {
+          'style': {'showSelfLinks': true},
+        }),
+      ]);
+      await support.progress(tester);
+      expect((await update).outcome, PatchMapOutcome.applied);
+      expect(await _pixel(tester, map, loopPoint), red);
+
+      await _draw(tester, map, _horizontal, showSelfLinks: false);
+      expect(await _pixel(tester, map, oldLine), red);
+      map.previewRelationLinks(_relation.id, self);
+      await tester.pump();
+      expect((await _pixel(tester, map, oldLine)).last, 0);
+      expect((await _pixel(tester, map, loopPoint)).last, 0);
+      expect(map.getValue(_relation)!['links'], _horizontal);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('previews replace committed pixels in relation paint order', (
     tester,

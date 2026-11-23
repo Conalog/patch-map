@@ -84,7 +84,9 @@ final class RelationGeometry {
     final width = (style['width'] as num?)?.toDouble() ?? 1;
     final startMarker = style['startMarker'] as String? ?? 'none';
     final endMarker = style['endMarker'] as String? ?? 'none';
+    final showSelfLinks = style['showSelfLinks'] != false;
     final paths = <RelationPath>[];
+    Rect? hiddenSelfBounds;
     final boundsCache = <String, Rect?>{};
     Rect? bounds(String id) => boundsCache.putIfAbsent(id, () {
       final endpoint = targetFor(id);
@@ -109,6 +111,10 @@ final class RelationGeometry {
       }
       final source = bounds(fromId), target = bounds(toId);
       if (source == null || target == null) continue;
+      if (!showSelfLinks && fromId == toId) {
+        hiddenSelfBounds = unionBounds(hiddenSelfBounds, source);
+        continue;
+      }
       final worldPoints = fromId == toId
           ? _selfLoop(source)
           : [source.center, target.center];
@@ -202,6 +208,8 @@ final class RelationGeometry {
         );
       }
     }
+    // A membership-only relation still has a selection and focus location.
+    logicalBounds ??= hiddenSelfBounds;
     if (logicalBounds != null) validateBounds(logicalBounds);
     final worldQuads = [for (final quad in quads) _project(node.world, quad)];
     for (final quad in worldQuads) {
