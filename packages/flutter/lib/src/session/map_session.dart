@@ -1440,15 +1440,29 @@ final class MapSession {
         if (edit != null) {
           pending!.edit = null;
           if (structure != null) {
+            final oldDocument = _document!;
             _document = structure.document;
             final removed = structure.removed;
             if (removed != null) {
               _values.removeWhere((target, _) => removed.contains(target.id));
               _failedTargets.removeAll(removed);
             }
-            final before = _layers?.opacity;
-            _layers?.rootsChanged(removed);
-            _publishPresentation(before);
+            final layers = _layers;
+            if (layers != null) {
+              final before = layers.opacity;
+              final relationId = structure.relationValue?['id'] as String?;
+              final restored =
+                  relationId != null &&
+                      !oldDocument.targets.containsKey(relationId)
+                  ? structure.document.targets[relationId]
+                  : null;
+              layers.documentChanged(
+                structure.document,
+                removed: removed,
+                restoredRelation: restored,
+              );
+              _publishPresentation(before);
+            }
           } else if ((edit as _MovePublication).record && history != null) {
             history.recordPositions(changes, readEditSelection);
           }

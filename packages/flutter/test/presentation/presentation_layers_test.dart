@@ -66,6 +66,81 @@ PatchMapPresentationLayer layer({
 );
 
 void main() {
+  test('restored nested relation inherits surviving scopes across keys', () {
+    final original = const DatasetReader().read([
+      {
+        'type': 'group',
+        'id': 'outer',
+        'children': [
+          {
+            'type': 'group',
+            'id': 'inner',
+            'children': [
+              {'type': 'relations', 'id': 'relation', 'links': []},
+              {'type': 'rect', 'id': 'sibling', 'size': 10},
+            ],
+          },
+        ],
+      },
+    ]);
+    final relation = original.targets['relation']!;
+    final owner = PresentationLayers();
+    final first = layer(
+      scope: const [PatchMapTarget('outer'), PatchMapTarget('inner')],
+      targets: const [PatchMapTarget('inner')],
+      matchedAlpha: 0.2,
+      unmatchedAlpha: 0.5,
+    );
+    owner.set('first', first, original);
+    owner.set(
+      'second',
+      layer(scope: const [PatchMapTarget('outer')], unmatchedAlpha: 0.5),
+      original,
+    );
+    owner.set(
+      'explicit',
+      layer(scope: const [PatchMapTarget('relation')], unmatchedAlpha: 0.1),
+      original,
+    );
+    expect(owner.opacity!.alpha('relation'), closeTo(0.01, 1e-12));
+    final removed = original.changeRelation(
+      'relation',
+      parentId: 'inner',
+      index: 0,
+      replacement: null,
+    );
+    owner.documentChanged(removed, removed: {'relation'});
+    expect(owner.opacity!.alpha('relation'), 1);
+    final restored = removed.changeRelation(
+      'relation',
+      parentId: 'inner',
+      index: 0,
+      replacement: relation,
+    );
+    owner.documentChanged(restored, restoredRelation: relation);
+    expect(owner.opacity!.alpha('relation'), 0.1);
+    expect(owner.opacity!.alpha('sibling'), 0.1);
+    expect(
+      owner.set('first', first, restored).outcome,
+      PatchMapOutcome.unchanged,
+    );
+    // A new set builds its adjacency index against the current document.
+    expect(
+      owner
+          .set(
+            'third',
+            layer(scope: const [PatchMapTarget('inner')], unmatchedAlpha: 0.5),
+            restored,
+          )
+          .changed,
+      true,
+    );
+    expect(owner.opacity!.alpha('relation'), 0.05);
+    expect(
+      owner.set('fourth', layer(), restored).outcome,
+      PatchMapOutcome.rejected,
+    );
+  });
   test('keys multiply and clearing zero needs no division', () {
     final document = scene(), owner = PresentationLayers();
     expect(owner.layerCount, 0);

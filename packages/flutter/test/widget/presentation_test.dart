@@ -62,6 +62,63 @@ Future<void> draw(
 }
 
 void main() {
+  testWidgets('undo restores a nested relation with its group presentation', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox.square(
+            dimension: 400,
+            child: PatchMapView(controller: controller, editHistoryLimit: 50),
+          ),
+        ),
+      ),
+    );
+    await draw(tester, controller, [
+      for (final (id, x) in [('a', -100), ('b', 80)])
+        {
+          'id': id,
+          'type': 'rect',
+          'size': 20,
+          'attrs': {'x': x},
+        },
+      {
+        'id': 'g',
+        'type': 'group',
+        'children': [
+          {
+            'id': 'r',
+            'type': 'relations',
+            'links': [
+              {'source': 'a', 'target': 'b'},
+            ],
+            'style': {'width': 10, 'color': 'red'},
+          },
+        ],
+      },
+    ]);
+    controller.setCamera(center: const Offset(0, 10), scale: 1);
+    final dimmed = layer('g', .2);
+    controller.setPresentation('dim', dimmed);
+    await tester.pump();
+    expectAlpha(await centerPixel(tester), 51);
+
+    final remove = controller.removeRelation('r');
+    await support.progress(tester);
+    expect((await remove).outcome, PatchMapOutcome.applied);
+    final undo = controller.undo();
+    await support.progress(tester);
+    expect((await undo).result.outcome, PatchMapOutcome.applied);
+    expectAlpha(await centerPixel(tester), 51);
+    expect(
+      controller.setPresentation('dim', dimmed).outcome,
+      PatchMapOutcome.unchanged,
+    );
+  });
+
   testWidgets('keyed alpha multiplies and clear preserves authored values', (
     tester,
   ) async {

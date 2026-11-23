@@ -30,17 +30,43 @@ final class PresentationLayers {
   int get layerCount => _layers.length;
   PresentationOpacity? get opacity => _opacity;
 
-  /// Root append leaves existing membership intact. Undo drops addresses
-  /// belonging to the removed roots before their IDs can be used again.
-  void rootsChanged(Set<String>? removed) {
+  /// Discard adjacency for the old document and reconcile changed membership.
+  /// Removed explicit addresses cannot attach to a later reuse of their IDs.
+  void documentChanged(
+    DatasetDocument document, {
+    Set<String>? removed,
+    DatasetTarget? restoredRelation,
+  }) {
     _index = null;
-    if (removed == null) return;
-    for (final layer in _layers.values) {
-      layer.scope.removeWhere((target) => removed.contains(target.id));
-      layer.matched.removeWhere((target) => removed.contains(target.id));
-      layer.factors.removeWhere((target, _) => removed.contains(target.id));
+    if (removed != null) {
+      for (final layer in _layers.values) {
+        layer.scope.removeWhere((target) => removed.contains(target.id));
+        layer.matched.removeWhere((target) => removed.contains(target.id));
+        layer.factors.removeWhere((target, _) => removed.contains(target.id));
+      }
     }
-    _compose();
+    if (restoredRelation != null) {
+      final address = PatchMapTarget(restoredRelation.id);
+      final ancestors = <PatchMapTarget>{address};
+      var parentId = restoredRelation.parentId;
+      while (parentId != null) {
+        final parent = document.targets[parentId];
+        if (parent == null) break;
+        ancestors.add(PatchMapTarget(parent.id));
+        parentId = parent.parentId;
+      }
+      for (final layer in _layers.values) {
+        final inScope = ancestors.any(layer.scope.contains);
+        final matched = ancestors.any(layer.matched.contains);
+        final factor = matched ? layer.matchedAlpha : layer.unmatchedAlpha;
+        if (inScope && factor != 1) {
+          layer.factors[address] = factor;
+        } else {
+          layer.factors.remove(address);
+        }
+      }
+    }
+    if (removed != null || restoredRelation != null) _compose();
   }
 
   PatchMapPresentationResult set(

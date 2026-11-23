@@ -34,6 +34,8 @@ Invalid replacement preserves them. A layer set immediately after accepted draw
 belongs to the new diagram and survives asynchronous preparation/hide. Inactive
 maps preserve admitted layers and paint them on resume. Filters cannot mutate
 layers; result callbacks can. Removing the widget drops all layer state.
+Restoring a nested relation through editor history reapplies the existing
+ancestor scope and matched factors. Removed explicit addresses stay discarded.
 
 ## Ownership and rendering
 
