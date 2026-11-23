@@ -1496,7 +1496,7 @@ void main() {
     expect((await map.undo()).result.outcome, PatchMapOutcome.unchanged);
   });
 
-  testWidgets('zero limit still applies edits without retaining history', (
+  testWidgets('zero limit reports busy changes without retaining history', (
     tester,
   ) async {
     final map = PatchMapController();
@@ -1504,8 +1504,14 @@ void main() {
     await tester.pumpWidget(_host(map, limit: 0, onHistory: history.add));
     await _draw(tester, map);
     map.select(_ids);
-    await _align(tester, map, PatchMapAlignment.top);
-    expect(history, isEmpty);
+    final move = map.alignSelection(PatchMapAlignment.top);
+    expect(map.editHistoryState.isBusy, isTrue);
+    expect(
+      (await _submit(tester, move)).result.outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(history.map((state) => state.isBusy), [true, false]);
+    expect(map.editHistoryState.isBusy, isFalse);
     expect(map.editHistoryState.undoDepth, 0);
     expect((await map.undo()).result.outcome, PatchMapOutcome.unchanged);
   });

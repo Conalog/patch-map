@@ -97,7 +97,13 @@ final class MapSession {
         active: active && _phase == PatchMapPhase.ready,
         busy: editInFlight,
       ) ??
-      emptyEditHistoryState;
+      (
+        undoDepth: 0,
+        redoDepth: 0,
+        canUndo: false,
+        canRedo: false,
+        isBusy: editInFlight,
+      );
   Map<String, Object?>? current(PatchMapTarget target) {
     final value = _values[target];
     final authored = _document?.targets[target.id];
@@ -935,7 +941,6 @@ final class MapSession {
   void _notifyEditHistory() {
     final callback = onEditHistoryChanged;
     if (callback == null ||
-        _editHistory == null ||
         _closed ||
         _historyNotificationQueued ||
         editHistoryState == _notifiedHistory) {

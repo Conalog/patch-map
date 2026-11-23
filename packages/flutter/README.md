@@ -518,7 +518,8 @@ identities and selection. A new entry drops the redo branch and capacity evicts
 the oldest entries.
 
 `controller.editHistoryState` reports both depths, availability and whether a
-scene edit or replay is in flight. `undo()` and `redo()` restore the saved
+scene edit or replay is in flight. The busy flag and its change notifications
+also work with a zero history limit. `undo()` and `redo()` restore the saved
 local position axes and the still-selectable IDs from that edit. Related
 geometry updates with the same publication. Camera and other effective fields
 are retained. A position replay returns the restored positions after frame
