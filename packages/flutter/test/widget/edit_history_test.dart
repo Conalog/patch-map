@@ -1125,6 +1125,49 @@ void main() {
     expect((await map.undo()).result.outcome, PatchMapOutcome.unchanged);
   });
 
+  testWidgets('keeps generated IDs unique after deletion and history replay', (
+    tester,
+  ) async {
+    final map = PatchMapController();
+    await tester.pumpWidget(_host(map));
+    const existing = {'type': 'rect', 'size': 20};
+    const removed = {'type': 'relations', 'id': 'old', 'links': []};
+    const existingId = r'@element:$[1]';
+    expect(
+      (await _submit(tester, map.draw([removed, existing]))).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(map.rootIds, ['old', existingId]);
+    expect(
+      (await _submit(tester, map.removeRelation('old'))).outcome,
+      PatchMapOutcome.applied,
+    );
+    expect(
+      (await _submit(tester, map.addObjects([existing]))).outcome,
+      PatchMapOutcome.applied,
+    );
+    final addedId = map.rootIds.last;
+    expect(addedId, isNot(existingId));
+    expect(map.rootIds, [existingId, addedId]);
+    expect(_selected(map), [addedId]);
+
+    for (var step = 0; step < 2; step++) {
+      expect(
+        (await _submit(tester, map.undo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+    }
+    expect(map.rootIds, ['old', existingId]);
+    for (var step = 0; step < 2; step++) {
+      expect(
+        (await _submit(tester, map.redo())).result.outcome,
+        PatchMapOutcome.applied,
+      );
+    }
+    expect(map.rootIds, [existingId, addedId]);
+    expect(_selected(map), [addedId]);
+  });
+
   testWidgets('records completed point, range and clear selections', (
     tester,
   ) async {

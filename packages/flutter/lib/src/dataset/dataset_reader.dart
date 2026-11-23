@@ -126,8 +126,14 @@ class DatasetTarget {
 /// Stateless admission: a candidate becomes observable only after all roots pass.
 class DatasetReader {
   const DatasetReader();
-  DatasetDocument read(Object? input, {int rootOffset = 0}) =>
-      _Candidate().read(input, rootOffset);
+  DatasetDocument read(Object? input) => _Candidate().read(input);
+
+  DatasetDocument readForAppend(
+    List<Map<String, Object?>> objects,
+    DatasetDocument current,
+  ) => _Candidate(
+    existingTargets: current.targets,
+  ).read(objects, rootOffset: current.roots.length);
 
   DatasetTarget readRelation(Map<String, Object?> input, String? parentId) {
     final candidate = _Candidate();
@@ -166,17 +172,71 @@ const _components = {
 };
 
 class _Candidate {
+  _Candidate({Map<String, DatasetTarget>? existingTargets})
+    : _existingTargets = existingTargets;
+
+  final Map<String, DatasetTarget>? _existingTargets;
   final _ids = <String>{};
+  Set<String> _authoredIds = const {};
   final _targets = <String, DatasetTarget>{};
   final _ancestors = HashSet<Object>.identity();
 
-  DatasetDocument read(Object? input, int rootOffset) {
+  DatasetDocument read(Object? input, {int rootOffset = 0}) {
     final values = array(input, r'$');
+    if (_existingTargets != null) _authoredIds = _readAuthoredIds(values);
     final roots = List<Map<String, Object?>>.unmodifiable([
       for (var i = 0; i < values.length; i++)
         _element(values[i], '\$[${rootOffset + i}]', null),
     ]);
     return DatasetDocument._(roots, Map.unmodifiable(_targets));
+  }
+
+  Set<String> _readAuthoredIds(List<Object?> values) {
+    final ids = <String>{};
+    final visited = HashSet<Object>.identity();
+    void reserve(Object? value) {
+      if (value is! Map || !visited.add(value)) return;
+      if (value['id'] case final String id) ids.add(id);
+      if (value['type'] == 'group') {
+        final children = value['children'];
+        if (children is List) children.forEach(reserve);
+      }
+    }
+
+    values.forEach(reserve);
+    return ids;
+  }
+
+  String _generatedId(String path, String type, Map<String, Object?> input) {
+    final base = '@element:$path';
+    if (_existingTargets == null) return base;
+    var id = base;
+    for (
+      var suffix = 1;
+      _idInUse(id) || (type == 'grid' && _gridCellsInUse(id, input));
+      suffix++
+    ) {
+      id = '$base#$suffix';
+    }
+    return id;
+  }
+
+  bool _idInUse(String id) =>
+      _existingTargets!.containsKey(id) ||
+      _authoredIds.contains(id) ||
+      _ids.contains(id);
+
+  bool _gridCellsInUse(String id, Map<String, Object?> input) {
+    final rows = input['cells'];
+    if (rows is! List) return false;
+    final keepInactive = input['inactiveCellStrategy'] == 'hide';
+    for (final (r, row) in rows.indexed) {
+      if (row is! List) continue;
+      for (final (c, cell) in row.indexed) {
+        if ((cell != 0 || keepInactive) && _idInUse('$id.$r.$c')) return true;
+      }
+    }
+    return false;
   }
 
   void _register(String id, String path) {
@@ -199,7 +259,7 @@ class _Candidate {
       known(input, [..._elementBase, ..._elements[type]!], path);
       final id = input.containsKey('id')
           ? string(input['id'], '$path.id')
-          : '@element:$path';
+          : _generatedId(path, type, input);
       _register(id, '$path.id');
       final result = <String, Object?>{
         'type': type,

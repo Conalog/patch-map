@@ -422,7 +422,9 @@ final result = await controller.addObjects([
 
 Use the same element schema as `draw`. The active, ready diagram admits an
 entire list of roots together, including their child, component, and grid-cell
-identities. Existing roots keep their effective values and camera. By default
+identities. Generated element IDs avoid collisions with current targets and
+explicit IDs in the batch. Undo and redo reuse the IDs assigned at addition.
+Existing roots keep their effective values and camera. By default
 the added selectable roots become the selection. Pass `selectAdded: false`
 to retain the current selection. New relation links may reference existing
 targets or targets added by the same batch. An invalid endpoint rejects the

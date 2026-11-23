@@ -305,7 +305,7 @@ final class MapSession {
     final DatasetDocument added, candidate;
     try {
       final document = _document!;
-      added = _reader.read(objects, rootOffset: document.roots.length);
+      added = _reader.readForAppend(objects, document);
       if (added.roots.isEmpty) return PatchMapResult(PatchMapOutcome.unchanged);
       candidate = document.append(added);
       for (final target in added.targets.values) {
